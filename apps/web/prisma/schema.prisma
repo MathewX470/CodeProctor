@@ -1,14 +1,650 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// DOMAIN 1 — AUTHENTICATION & RBAC
+// ============================================================
+
+// Better Auth base tables (Session/Account/Verification unmodified).
+// User's platform role is no longer a fixed enum column — it's a
+// many-to-many via Role/UserRole, so adding Moderator, TA, Org Admin,
+// etc. later never touches the User table.
+
+model User {
+  id            String    @id
+  name          String
+  email         String
+  emailVerified Boolean
+  image         String?
+  createdAt     DateTime
+  updatedAt     DateTime
+  Session       Session[]
+  Account       Account[]
+
+  userRoles             UserRole[]
+  problemsCreated       Problem[]               @relation("ProblemAuthor")
+  contestMemberships    ContestMember[]         @relation("ContestMemberships")
+  contestMembersInvited ContestMember[]         @relation("ContestMembersInvited")
+  submissions           Submission[]            @relation("UserSubmissions")
+  filesUploaded         File[]                  @relation("FilesUploaded")
+  notificationsReceived NotificationRecipient[] @relation("NotificationsReceived")
+  auditLogsActed        AuditLog[]              @relation("AuditActor")
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime
+  updatedAt DateTime
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime
+  updatedAt             DateTime
+
+  @@map("account")
+}
+
+model Verification {
+  id         String    @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime?
+  updatedAt  DateTime?
+
+  @@map("verification")
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique // "ADMIN", "USER", "MODERATOR", ...
+  description String?
+  createdAt   DateTime @default(now())
+
+  userRoles UserRole[]
+
+  @@map("role")
+}
+
+model UserRole {
+  id         String   @id @default(cuid())
+  userId     String
+  roleId     String
+  assignedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@map("user_role")
+}
+
+// ============================================================
+// DOMAIN 2 — PROBLEM BANK
+// ============================================================
+
+model Problem {
+  id          String     @id @default(cuid())
+  title       String
+  slug        String     @unique
+  description String // markdown
+  difficulty  Difficulty
+  timeLimit   Int // ms
+  memoryLimit Int // KB
+  isPublic    Boolean    @default(false)
+  isDeleted   Boolean    @default(false) // soft delete: problems may be referenced by past contests/submissions
+  createdById String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  createdBy         User               @relation("ProblemAuthor", fields: [createdById], references: [id], onDelete: Cascade)
+  testCases         TestCase[]
+  samples           ProblemSample[]
+  problemTags       ProblemTag[]
+  languageTemplates LanguageTemplate[]
+  contestProblems   ContestProblem[]
+  submissions       Submission[]
+
+  @@index([isPublic])
+  @@index([createdById])
+  @@map("problem")
+}
+
+model Tag {
+  id   String @id @default(cuid())
+  name String @unique
+
+  problemTags ProblemTag[]
+
+  @@map("tag")
+}
+
+// Normalized many-to-many — never `tags TEXT[]` on Problem.
+model ProblemTag {
+  problemId String
+  tagId     String
+
+  problem Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  tag     Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([problemId, tagId])
+  @@map("problem_tag")
+}
+
+model TestCase {
+  id             String   @id @default(cuid())
+  problemId      String
+  input          String
+  expectedOutput String
+  isHidden       Boolean  @default(false)
+  weight         Int      @default(1) // enables partial scoring
+  createdAt      DateTime @default(now())
+
+  problem             Problem              @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  submissionTestCases SubmissionTestCase[]
+
+  @@index([problemId])
+  @@map("test_case")
+}
+
+// Public-facing example I/O shown on the problem page — distinct from
+// TestCase, which is what the judge actually grades against.
+model ProblemSample {
+  id             String  @id @default(cuid())
+  problemId      String
+  input          String
+  expectedOutput String
+  explanation    String?
+  order          Int     @default(0)
+
+  problem Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@index([problemId])
+  @@map("problem_sample")
+}
+
+model LanguageTemplate {
+  id          String @id @default(cuid())
+  problemId   String
+  languageId  String
+  boilerplate String
+
+  problem  Problem  @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  language Language @relation(fields: [languageId], references: [id], onDelete: Cascade)
+
+  @@unique([problemId, languageId])
+  @@map("language_template")
+}
+
+// ============================================================
+// DOMAIN 3 — CONTEST ENGINE
+// ============================================================
+
+// Contest stores only metadata/lifecycle fields. All proctoring/access
+// toggles live in ContestSettings so new settings never alter Contest.
+//
+// NOTE: There is no `ownerId` column here. Ownership is just a
+// ContestMember row with role = OWNER — same table, same query path
+// as MODERATOR and PARTICIPANT. This is what makes roles genuinely
+// per-contest: a user's role in Contest A tells you nothing about
+// their role in Contest B.
+model Contest {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  startTime   DateTime
+  endTime     DateTime
+  duration    Int // minutes
+  isDeleted   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  settings      ContestSettings?
+  problems      ContestProblem[]
+  members       ContestMember[]
+  invites       ContestInvite[]
+  announcements Announcement[]
+  submissions   Submission[]
+
+  @@index([startTime, endTime])
+  @@map("contest")
+}
+
+model ContestSettings {
+  id                String         @id @default(cuid())
+  contestId         String         @unique
+  proctoringMode    ProctoringMode @default(NORMAL)
+  requireCamera     Boolean        @default(false)
+  requireFullScreen Boolean        @default(false)
+  detectTabSwitch   Boolean        @default(false)
+  detectCopyPaste   Boolean        @default(false)
+  password          String?
+  allowLateJoin     Boolean        @default(false)
+  isPublic          Boolean        @default(true)
+
+  contest Contest @relation(fields: [contestId], references: [id], onDelete: Cascade)
+
+  @@map("contest_settings")
+}
+
+// Many-to-many: Contest <-> Problem, with ordering + per-contest points
+model ContestProblem {
+  id        String @id @default(cuid())
+  contestId String
+  problemId String
+  order     Int    @default(0)
+  points    Int    @default(100)
+
+  contest Contest @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  problem Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@unique([contestId, problemId])
+  @@map("contest_problem")
+}
+
+// Join: User <-> Contest, now carrying a per-contest ROLE.
+//
+// role = OWNER      -> created the contest; full control (edit, delete,
+//                      manage moderators, manage settings)
+// role = MODERATOR  -> added by the OWNER; can manage problems,
+//                      announcements, and review the malpractice
+//                      timeline, but cannot delete the contest, change
+//                      its settings, or manage other moderators
+//                      (enforced in the app/service layer, not here)
+// role = PARTICIPANT -> attends the contest; the only role that
+//                       accumulates bestScore/penalty and can be
+//                       disqualified
+//
+// @@unique([contestId, userId]) is the load-bearing constraint: a user
+// can hold exactly one role per contest, which is what makes "the
+// owner/moderator of this contest cannot also participate in it"
+// automatically true — a second row for the same (contest, user) pair
+// is impossible, so there's no separate row to hold a PARTICIPANT role
+// once OWNER or MODERATOR already occupies that slot.
+//
+// A DB-level guarantee that at most one member per contest can be
+// OWNER cannot be expressed in the Prisma schema DSL (it needs a
+// partial unique index) — add it via raw SQL in the migration:
+//   CREATE UNIQUE INDEX contest_member_one_owner
+//     ON "contest_member" ("contestId")
+//     WHERE "role" = 'OWNER';
+model ContestMember {
+  id                     String      @id @default(cuid())
+  contestId              String
+  userId                 String
+  role                   ContestRole @default(PARTICIPANT)
+  invitedById            String? // who added this member (owner, for MODERATOR/invited PARTICIPANT rows)
+  joinedAt               DateTime    @default(now())
+  bestScore              Int         @default(0)
+  penalty                Int         @default(0)
+  lastAcceptedSubmission DateTime?
+  isDisqualified         Boolean     @default(false)
+  disqualifiedReason     String?
+  disqualifiedAt         DateTime?
+
+  contest        Contest         @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  user           User            @relation("ContestMemberships", fields: [userId], references: [id], onDelete: Cascade)
+  invitedBy      User?           @relation("ContestMembersInvited", fields: [invitedById], references: [id], onDelete: SetNull)
+  proctorSession ProctorSession?
+
+  @@unique([contestId, userId])
+  @@index([contestId, role])
+  @@map("contest_member")
+}
+
+model ContestInvite {
+  id          String       @id @default(cuid())
+  contestId   String
+  email       String
+  role        ContestRole  @default(PARTICIPANT) // owner can invite someone directly as MODERATOR
+  status      InviteStatus @default(PENDING)
+  invitedAt   DateTime     @default(now())
+  respondedAt DateTime?
+
+  contest Contest @relation(fields: [contestId], references: [id], onDelete: Cascade)
+
+  @@unique([contestId, email])
+  @@map("contest_invite")
+}
+
+model Announcement {
+  id        String   @id @default(cuid())
+  contestId String
+  message   String
+  createdAt DateTime @default(now())
+
+  contest Contest @relation(fields: [contestId], references: [id], onDelete: Cascade)
+
+  @@index([contestId])
+  @@map("announcement")
+}
+
+// ============================================================
+// DOMAIN 4 — JUDGE
+// ============================================================
+
+model Language {
+  id          String  @id @default(cuid())
+  name        String  @unique // "Python 3.11"
+  slug        String  @unique // "python3"
+  dockerImage String
+  isActive    Boolean @default(true)
+
+  submissions       Submission[]
+  languageTemplates LanguageTemplate[]
+
+  @@map("language")
+}
+
+model Submission {
+  id            String           @id @default(cuid())
+  userId        String
+  problemId     String
+  contestId     String? // null => practice submission
+  languageId    String
+  sourceCode    String
+  status        SubmissionStatus @default(QUEUED)
+  verdict       Verdict? // aggregate/final verdict
+  executionTime Int? // ms, worst case across test cases
+  memoryUsed    Int? // KB, worst case across test cases
+  submittedAt   DateTime         @default(now())
+  judgedAt      DateTime?
+
+  user            User                 @relation("UserSubmissions", fields: [userId], references: [id], onDelete: Cascade)
+  problem         Problem              @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  contest         Contest?             @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  language        Language             @relation(fields: [languageId], references: [id])
+  testCaseResults SubmissionTestCase[]
+  executionLogs   ExecutionLog[]
+  judgeJob        JudgeJob?
+
+  @@index([userId])
+  @@index([problemId])
+  @@index([contestId])
+  @@map("submission")
+}
+
+// Per-test-case result — never collapse this into just the Submission's
+// final verdict. Mirrors Codeforces-style full breakdown.
+model SubmissionTestCase {
+  id            String  @id @default(cuid())
+  submissionId  String
+  testCaseId    String
+  verdict       Verdict
+  executionTime Int?
+  memoryUsed    Int?
+  actualOutput  String?
+
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  testCase   TestCase   @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, testCaseId])
+  @@map("submission_test_case")
+}
+
+model ExecutionLog {
+  id           String   @id @default(cuid())
+  submissionId String
+  stage        String // "queue" | "compile" | "run"
+  message      String
+  createdAt    DateTime @default(now())
+
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@index([submissionId])
+  @@map("execution_log")
+}
+
+// Worker/queue bookkeeping — separate from Submission so retries,
+// worker assignment, etc. don't bloat the hot Submission table.
+model JudgeJob {
+  id           String    @id @default(cuid())
+  submissionId String    @unique
+  queuedAt     DateTime  @default(now())
+  startedAt    DateTime?
+  completedAt  DateTime?
+  workerId     String?
+  attempts     Int       @default(0)
+
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@map("judge_job")
+}
+
+// ============================================================
+// DOMAIN 5 — PROCTORING
+// ============================================================
+
+// ContestMember (role = PARTICIPANT) -> ProctorSession -> Violation -> Snapshot -> File
+// Only members with role PARTICIPANT are expected to have a ProctorSession —
+// owners/moderators are never proctored since they don't attend the contest.
+model ProctorSession {
+  id            String    @id @default(cuid())
+  participantId String    @unique
+  startedAt     DateTime  @default(now())
+  endedAt       DateTime?
+  cameraGranted Boolean   @default(false)
+  micGranted    Boolean   @default(false)
+
+  participant ContestMember @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  violations  Violation[]
+  faceMetrics FaceMetric[]
+
+  @@map("proctor_session")
+}
+
+model Violation {
+  id               String        @id @default(cuid())
+  proctorSessionId String
+  type             ViolationType
+  severity         Severity
+  timestamp        DateTime      @default(now())
+  metadata         Json?
+
+  proctorSession ProctorSession @relation(fields: [proctorSessionId], references: [id], onDelete: Cascade)
+  snapshots      Snapshot[]
+
+  @@index([proctorSessionId, timestamp])
+  @@map("violation")
+}
+
+model Snapshot {
+  id          String   @id @default(cuid())
+  violationId String
+  fileId      String
+  capturedAt  DateTime @default(now())
+
+  violation Violation @relation(fields: [violationId], references: [id], onDelete: Cascade)
+  file      File      @relation(fields: [fileId], references: [id]) // no cascade: deleting a Snapshot must not delete the underlying File
+
+  @@index([violationId])
+  @@map("snapshot")
+}
+
+model FaceMetric {
+  id               String   @id @default(cuid())
+  proctorSessionId String
+  timestamp        DateTime @default(now())
+  faceCount        Int
+  gazeDeviationDeg Float?
+
+  proctorSession ProctorSession @relation(fields: [proctorSessionId], references: [id], onDelete: Cascade)
+
+  @@index([proctorSessionId, timestamp])
+  @@map("face_metric")
+}
+
+// AudioMetric intentionally omitted for now (future domain addition;
+// slots in beside FaceMetric without touching ProctorSession).
+
+// ============================================================
+// DOMAIN 9 — FILE STORAGE
+// (defined here since Snapshot depends on it; conceptually its own domain)
+// ============================================================
+
+// Never store files in the DB or as bare URLs on other tables —
+// always point at a File row. Same table backs snapshots, editorial
+// PDFs, profile pictures, contest attachments, etc.
+model File {
+  id           String   @id @default(cuid())
+  bucket       String
+  key          String
+  url          String
+  uploadedById String?
+  mimeType     String
+  size         Int
+  createdAt    DateTime @default(now())
+
+  uploadedBy User?      @relation("FilesUploaded", fields: [uploadedById], references: [id], onDelete: SetNull)
+  snapshots  Snapshot[]
+
+  @@map("file")
+}
+
+// ============================================================
+// DOMAIN 7 — NOTIFICATIONS
+// ============================================================
+
+model Notification {
+  id        String   @id @default(cuid())
+  type      String // "CONTEST_STARTED" | "INVITATION" | "DISQUALIFICATION" | "SUBMISSION_JUDGED"
+  title     String
+  message   String
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  recipients NotificationRecipient[]
+
+  @@map("notification")
+}
+
+model NotificationRecipient {
+  id             String    @id @default(cuid())
+  notificationId String
+  userId         String
+  isRead         Boolean   @default(false)
+  readAt         DateTime?
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  user         User         @relation("NotificationsReceived", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([notificationId, userId])
+  @@index([userId, isRead])
+  @@map("notification_recipient")
+}
+
+// ============================================================
+// DOMAIN 8 — AUDIT
+// ============================================================
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  action     String // "DELETE_PROBLEM" | "UPDATE_CONTEST" | "BAN_USER" | "CHANGE_ROLE"
+  entityType String
+  entityId   String
+  before     Json?
+  after      Json?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([actorId])
+  @@map("audit_log")
+}
+
+// DOMAIN 10 — ANALYTICS: intentionally not modeled yet. Statistics
+// tables (ProblemStatistics, ContestStatistics, SubmissionStatistics)
+// are derived/rollup data and should never live alongside these
+// transactional tables — add as a separate read-optimized layer later.
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum ProctoringMode {
+  NORMAL
+  FULL_SCREEN
+  CV_PROCTORED
+}
+
+enum SubmissionStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+}
+
+enum Verdict {
+  ACCEPTED
+  WRONG_ANSWER
+  TIME_LIMIT_EXCEEDED
+  MEMORY_LIMIT_EXCEEDED
+  RUNTIME_ERROR
+  COMPILATION_ERROR
+}
+
+enum ViolationType {
+  TAB_SWITCH
+  FULLSCREEN_EXIT
+  NO_FACE
+  MULTIPLE_FACES
+  LOOKING_AWAY
+  PASTE
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+}
+
+// Contest-level roles — NOT platform roles. Scoped per (contestId, userId)
+// via ContestMember. See ContestMember for the full role breakdown.
+enum ContestRole {
+  OWNER
+  MODERATOR
+  PARTICIPANT
 }
