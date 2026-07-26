@@ -1,26 +1,125 @@
+@import url('https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@900,800,700,500,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
 @import "tailwindcss";
 
+@theme {
+  --color-background: #030303;
+  --color-on-background: #ffffff;
+  --color-surface: #0a0a0a;
+  --color-border: #1a1a1a;
+  --color-muted: #8a8a8a;
+  --color-alert: #ff3b30;
+  --color-warning: #ffcc00;
+  --color-success: #00ff66;
+
+  --font-display: "Cabinet Grotesk", var(--font-inter), sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  --font-body: "JetBrains Mono", monospace;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --cp-bg: #030303;
+  --cp-surface: #0a0a0a;
+  --cp-border: #1a1a1a;
+  --cp-text: #ffffff;
+  --cp-muted: #8a8a8a;
+  --cp-alert: #ff3b30;
+  --cp-warning: #ffcc00;
+  --cp-success: #00ff66;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  html {
+    background-color: var(--cp-bg);
+    color: var(--cp-text);
+    scroll-behavior: auto; /* Managed by Lenis smooth scroll */
+  }
+  body {
+    margin: 0;
+    background-color: var(--cp-bg);
+    color: var(--cp-text);
+    font-family: 'JetBrains Mono', monospace;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+  ::selection {
+    background: var(--cp-success);
+    color: #000;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.font-display {
+  font-family: 'Cabinet Grotesk', sans-serif;
+  letter-spacing: -0.04em;
+}
+
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Custom thin cyber scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #030303;
+}
+::-webkit-scrollbar-thumb {
+  background: #1a1a1a;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #2a2a2a;
+}
+
+/* Grain / noise overlay texture */
+.cp-grain::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Marquee stroke typography */
+.text-stroke {
+  -webkit-text-stroke: 1px rgba(255, 255, 255, 0.4);
+  color: transparent;
+}
+
+.marquee-track {
+  display: inline-flex;
+  white-space: nowrap;
+  will-change: transform;
+  animation: marquee 28s linear infinite;
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* Grid backdrop */
+.cp-grid-bg {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 64px 64px;
+}
+
+.cp-cta {
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    background-color 0.18s ease,
+    color 0.18s ease;
+}
+.cp-cta:hover {
+  transform: translateY(-2px);
 }
