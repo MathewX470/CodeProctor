@@ -2,11 +2,47 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Lock, Mail, ArrowRight, Terminal, Eye, EyeOff } from "lucide-react";
+import { toast } from "sonner";
+import { Lock, Mail, ArrowRight, Terminal, Eye, EyeOff, Loader2 } from "lucide-react";
+import { signIn } from "@/lib/auth-client";
 
 export default function LoginPage() {
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const { error } = await signIn.email({
+        email,
+        password,
+        callbackURL: "/",
+      });
+      if (error) {
+        toast.error(`[ AUTH EXCEPTION: ${error.message || "ACCESS DENIED"} ]`, {
+          description: "Please verify your credentials and security passphrase.",
+        });
+      } else {
+        toast.success("[ SUCCESS: SESSION INITIALIZED ]", {
+          description: "Identity confirmed. Accessing secure assessment arena...",
+        });
+        router.push("/");
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Unable to reach authentication endpoint.";
+      toast.error("[ SYSTEM FAULT: CONNECTION REFUSED ]", {
+        description: msg,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#030303] text-white flex items-center justify-center p-6 relative overflow-hidden cp-grain w-full">
@@ -46,7 +82,7 @@ export default function LoginPage() {
             Authenticate identity to enter isolated execution arenas and inspect candidate telemetry.
           </p>
 
-          <form className="space-y-5" onSubmit={(e) => e.preventDefault()}>
+          <form className="space-y-5" onSubmit={handleLogin}>
             {/* Email Field */}
             <div className="space-y-2 group/input">
               <label
@@ -64,8 +100,11 @@ export default function LoginPage() {
                   name="email"
                   type="email"
                   required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={loading}
                   placeholder="solver@domain.dev"
-                  className="w-full pl-11 pr-4 py-3.5 bg-[#030303] border border-[#1A1A1A] focus:border-[#00FF66] text-white font-mono text-xs transition-colors outline-none placeholder:text-[#505050] rounded-none"
+                  className="w-full pl-11 pr-4 py-3.5 bg-[#030303] border border-[#1A1A1A] focus:border-[#00FF66] text-white font-mono text-xs transition-colors outline-none placeholder:text-[#505050] rounded-none disabled:opacity-50"
                 />
               </div>
             </div>
@@ -95,8 +134,11 @@ export default function LoginPage() {
                   name="password"
                   type={showPassword ? "text" : "password"}
                   required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={loading}
                   placeholder="••••••••••••"
-                  className="w-full pl-11 pr-11 py-3.5 bg-[#030303] border border-[#1A1A1A] focus:border-[#00FF66] text-white font-mono text-xs transition-colors outline-none placeholder:text-[#505050] rounded-none"
+                  className="w-full pl-11 pr-11 py-3.5 bg-[#030303] border border-[#1A1A1A] focus:border-[#00FF66] text-white font-mono text-xs transition-colors outline-none placeholder:text-[#505050] rounded-none disabled:opacity-50"
                 />
                 <button
                   type="button"
@@ -112,10 +154,20 @@ export default function LoginPage() {
             {/* Brutalist Submit Button */}
             <button
               type="submit"
-              className="cp-cta w-full font-mono text-xs font-bold bg-white text-black py-4 px-6 tracking-widest hover:shadow-[5px_5px_0_0_#00FF66] mt-4 uppercase flex items-center justify-center gap-2 cursor-pointer transition-all"
+              disabled={loading}
+              className="cp-cta w-full font-mono text-xs font-bold bg-white text-black py-4 px-6 tracking-widest hover:shadow-[5px_5px_0_0_#00FF66] mt-4 uppercase flex items-center justify-center gap-2 cursor-pointer transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <span>AUTHENTICATE SESSION</span>
-              <ArrowRight className="w-4 h-4" />
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-black" />
+                  <span>AUTHENTICATING... [ ■■■□□ ]</span>
+                </>
+              ) : (
+                <>
+                  <span>AUTHENTICATE SESSION</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </button>
           </form>
 
