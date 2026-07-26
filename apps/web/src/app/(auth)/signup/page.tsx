@@ -2,12 +2,57 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { User, Mail, Lock, ArrowRight, Terminal, ShieldCheck, Eye, EyeOff } from "lucide-react";
+import { toast } from "sonner";
+import { User, Mail, Lock, ArrowRight, Terminal, ShieldCheck, Eye, EyeOff, Loader2 } from "lucide-react";
+import { signUp } from "@/lib/auth-client";
 
 export default function SignUpPage() {
+  const router = useRouter();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password !== confirmPassword) {
+      toast.error("[ SECURITY ALERT: PASSPHRASE MISMATCH ]", {
+        description: "Your passphrase confirmation does not equal your initial passphrase.",
+      });
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await signUp.email({
+        email,
+        password,
+        name,
+        callbackURL: "/",
+      });
+      if (error) {
+        toast.error(`[ AUTH EXCEPTION: ${error.message || "REGISTER FAILED"} ]`, {
+          description: "Could not initialize identity in Neon PostgreSQL.",
+        });
+      } else {
+        toast.success("[ SUCCESS: IDENTITY ESTABLISHED ]", {
+          description: "Welcome to CodeProctor. Your telemetry profile is now active.",
+        });
+        router.push("/");
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to contact authentication server.";
+      toast.error("[ SYSTEM FAULT: CONNECTION REFUSED ]", {
+        description: msg,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#030303] text-white flex items-center justify-center p-6 relative overflow-hidden cp-grain w-full">
@@ -47,7 +92,7 @@ export default function SignUpPage() {
             Register your developer profile to compete in timed arenas, deploy practice code, or orchestrate fair proctored assessments.
           </p>
 
-          <form className="space-y-5" onSubmit={(e) => e.preventDefault()}>
+          <form className="space-y-5" onSubmit={handleSignUp}>
             {/* Full Name Field */}
             <div className="space-y-2 group/input">
               <label
@@ -66,7 +111,10 @@ export default function SignUpPage() {
                   type="text"
                   placeholder="Jane Doe"
                   required
-                  className="w-full pl-11 pr-4 py-3.5 bg-[#030303] border border-[#1A1A1A] focus:border-[#00FF66] text-white font-mono text-xs transition-colors outline-none placeholder:text-[#505050] rounded-none"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  disabled={loading}
+                  className="w-full pl-11 pr-4 py-3.5 bg-[#030303] border border-[#1A1A1A] focus:border-[#00FF66] text-white font-mono text-xs transition-colors outline-none placeholder:text-[#505050] rounded-none disabled:opacity-50"
                 />
               </div>
             </div>
@@ -89,7 +137,10 @@ export default function SignUpPage() {
                   type="email"
                   placeholder="solver@domain.dev"
                   required
-                  className="w-full pl-11 pr-4 py-3.5 bg-[#030303] border border-[#1A1A1A] focus:border-[#00FF66] text-white font-mono text-xs transition-colors outline-none placeholder:text-[#505050] rounded-none"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={loading}
+                  className="w-full pl-11 pr-4 py-3.5 bg-[#030303] border border-[#1A1A1A] focus:border-[#00FF66] text-white font-mono text-xs transition-colors outline-none placeholder:text-[#505050] rounded-none disabled:opacity-50"
                 />
               </div>
             </div>
@@ -112,7 +163,10 @@ export default function SignUpPage() {
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••••••••"
                   required
-                  className="w-full pl-11 pr-11 py-3.5 bg-[#030303] border border-[#1A1A1A] focus:border-[#00FF66] text-white font-mono text-xs transition-colors outline-none placeholder:text-[#505050] rounded-none"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={loading}
+                  className="w-full pl-11 pr-11 py-3.5 bg-[#030303] border border-[#1A1A1A] focus:border-[#00FF66] text-white font-mono text-xs transition-colors outline-none placeholder:text-[#505050] rounded-none disabled:opacity-50"
                 />
                 <button
                   type="button"
@@ -147,7 +201,10 @@ export default function SignUpPage() {
                   type={showConfirm ? "text" : "password"}
                   placeholder="••••••••••••"
                   required
-                  className="w-full pl-11 pr-11 py-3.5 bg-[#030303] border border-[#1A1A1A] focus:border-[#00FF66] text-white font-mono text-xs transition-colors outline-none placeholder:text-[#505050] rounded-none"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  disabled={loading}
+                  className="w-full pl-11 pr-11 py-3.5 bg-[#030303] border border-[#1A1A1A] focus:border-[#00FF66] text-white font-mono text-xs transition-colors outline-none placeholder:text-[#505050] rounded-none disabled:opacity-50"
                 />
                 <button
                   type="button"
@@ -163,10 +220,20 @@ export default function SignUpPage() {
             {/* Brutalist Submit Button */}
             <button
               type="submit"
-              className="cp-cta w-full font-mono text-xs font-bold bg-white text-black py-4 px-6 tracking-widest hover:shadow-[5px_5px_0_0_#00FF66] mt-6 uppercase flex items-center justify-center gap-2 cursor-pointer transition-all"
+              disabled={loading}
+              className="cp-cta w-full font-mono text-xs font-bold bg-white text-black py-4 px-6 tracking-widest hover:shadow-[5px_5px_0_0_#00FF66] mt-6 uppercase flex items-center justify-center gap-2 cursor-pointer transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <span>INITIALIZE PROFILE</span>
-              <ArrowRight className="w-4 h-4" />
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-black" />
+                  <span>INITIALIZING... [ ■■■□□ ]</span>
+                </>
+              ) : (
+                <>
+                  <span>INITIALIZE PROFILE</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </button>
           </form>
 
