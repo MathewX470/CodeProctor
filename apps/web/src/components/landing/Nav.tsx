@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { toast } from "sonner";
 import { useSession, signOut } from "@/lib/auth-client";
+import { Logo } from "@/components/landing/Logo";
 
 export default function Nav() {
   const [scrolled, setScrolled] = useState(false);
@@ -45,9 +46,8 @@ export default function Nav() {
       }`}
     >
       <div className="max-w-[1600px] mx-auto px-6 md:px-10 h-16 flex items-center justify-between">
-        <a href="#top" data-testid="nav-brand" className="font-mono text-sm font-extrabold tracking-tight flex items-center gap-2">
-          <span className="inline-block w-2 h-2 bg-[#00FF66] animate-pulse" />
-          CodeProctor<span className="text-[#00FF66]">_</span>
+        <a href="#top" data-testid="nav-brand" className="flex items-center group">
+          <Logo size={28} className="group-hover:opacity-90 transition-opacity" />
         </a>
 
         <div className="hidden md:flex items-center gap-8 font-mono text-xs text-[#8A8A8A]">
