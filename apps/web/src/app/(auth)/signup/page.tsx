@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { User, Mail, Lock, ArrowRight, Terminal, ShieldCheck, Eye, EyeOff, Loader2 } from "lucide-react";
 import { signUp } from "@/lib/auth-client";
+import { Logo } from "@/components/landing/Logo";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -68,9 +69,8 @@ export default function SignUpPage() {
       >
         {/* Brand Nav Header */}
         <div className="flex items-center justify-between mb-6 px-1">
-          <Link href="/" className="font-mono text-sm font-extrabold tracking-tight flex items-center gap-2 group">
-            <span className="inline-block w-2 h-2 bg-[#00FF66] animate-pulse" />
-            CodeProctor<span className="text-[#00FF66] group-hover:translate-x-0.5 transition-transform">_</span>
+          <Link href="/" className="flex items-center group">
+            <Logo size={26} className="group-hover:opacity-90 transition-opacity" />
           </Link>
           <span className="font-mono text-[10px] text-[#8A8A8A] tracking-widest uppercase">[ REGISTRATION ]</span>
         </div>
