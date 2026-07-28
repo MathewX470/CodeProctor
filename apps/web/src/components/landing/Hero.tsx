@@ -1,155 +1,165 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element */
-import React, { useRef } from "react";
-import { motion, useScroll, useTransform, type Variants } from "framer-motion";
+import React, { useState, useEffect } from "react";
+import Link from "next/link";
+import { ArrowRight, ShieldCheck, Play, Activity, Zap } from "lucide-react";
 
-const MESH =
-  "https://images.unsplash.com/photo-1718844054447-42759fd577e5?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NzV8MHwxfHNlYXJjaHwyfHxhYnN0cmFjdCUyMGRhcmslMjBkYXRhJTIwbWF0cml4JTIwbWVzaHxlbnwwfHx8fDE3ODUwODU1MDl8MA&ixlib=rb-4.1.0&q=85";
+export function Hero() {
+  // Simulated real-time execution & proctoring metrics scanner
+  const [activeTest, setActiveTest] = useState(1);
+  const [latency, setLatency] = useState(14);
 
-const line: Variants = {
-  hidden: { y: "110%" },
-  show: (i: number) => ({
-    y: "0%",
-    transition: { duration: 0.9, ease: [0.16, 1, 0.3, 1] as const, delay: 0.4 + i * 0.12 },
-  }),
-};
-
-
-const LineMask = ({
-  children,
-  i,
-  className = "",
-}: {
-  children: React.ReactNode;
-  i: number;
-  className?: string;
-}) => (
-  <span className="block overflow-hidden">
-    <motion.span variants={line} custom={i} initial="hidden" animate="show" className={`block ${className}`}>
-      {children}
-    </motion.span>
-  </span>
-);
-
-export const Hero = () => {
-  const ref = useRef<HTMLDivElement>(null);
-  const mouse = useRef({ x: 0, y: 0 });
-  const cardRef = useRef<HTMLDivElement>(null);
-
-  const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
-  const meshY = useTransform(scrollYProgress, [0, 1], [0, 160]);
-  const textY = useTransform(scrollYProgress, [0, 1], [0, 120]);
-  const fade = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
-
-  const handleMouse = (e: React.MouseEvent<HTMLElement>) => {
-    const { innerWidth, innerHeight } = window;
-    const x = (e.clientX / innerWidth - 0.5) * 2;
-    const y = (e.clientY / innerHeight - 0.5) * 2;
-    mouse.current = { x, y };
-    if (cardRef.current) {
-      cardRef.current.style.transform = `perspective(1000px) rotateY(${x * 8}deg) rotateX(${-y * 8}deg) translateZ(0)`;
-    }
-  };
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveTest((prev) => (prev < 8 ? prev + 1 : 1));
+      setLatency(Math.floor(Math.random() * 5) + 12); // Fluctuates between 12ms and 16ms
+    }, 2500);
+    return () => clearInterval(timer);
+  }, []);
 
   return (
-    <section
-      id="top"
-      ref={ref}
-      onMouseMove={handleMouse}
-      data-testid="hero-section"
-      className="relative min-h-screen w-full overflow-hidden cp-grid-bg flex items-center"
-    >
-      {/* parallax mesh */}
-      <motion.div
-        style={{ y: meshY }}
-        className="absolute inset-0 z-0 opacity-20 pointer-events-none"
-      >
-        <img src={MESH} alt="" className="w-full h-full object-cover mix-blend-lighten" />
-      </motion.div>
-      <div className="absolute inset-0 z-0 bg-gradient-to-b from-transparent via-[#030303]/40 to-[#030303] pointer-events-none" />
+    <section className="relative pt-24 pb-20 px-6 max-w-7xl mx-auto flex flex-col items-center text-center overflow-hidden min-h-[85vh] justify-center" id="features">
+      
+      {/* Subtle Glowing Emerald Backdrop */}
+      <div className="absolute top-12 left-1/2 -translate-x-1/2 w-[650px] h-[350px] bg-emerald-500/15 blur-[140px] pointer-events-none rounded-full z-0" />
 
-      <div className="relative z-10 max-w-[1600px] mx-auto px-6 md:px-10 w-full pt-28 pb-16 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-        {/* Left: kinetic headline */}
-        <motion.div style={{ y: textY, opacity: fade }} className="lg:col-span-7">
+      <div className="relative z-10 flex flex-col items-center max-w-4xl mx-auto space-y-6">
+        {/* Headline */}
+        <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-white leading-tight drop-shadow-sm">
+          Fair Coding Assessments,{" "}
+          <span className="bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-500 animate-gradient">
+            Without the Friction.
+          </span>
+        </h1>
 
-          <h1 className="font-display font-extrabold uppercase text-[13vw] leading-[0.86] lg:text-[7.5vw] tracking-tighter">
-            <LineMask i={0}>The Sandbox</LineMask>
-            <LineMask i={1}>
-              That <span className="text-[#00FF66]">Watches</span>
-            </LineMask>
-            <LineMask i={2} className="text-stroke">Back.</LineMask>
-          </h1>
+        {/* Subdescription */}
+        <p className="text-lg sm:text-xl text-zinc-400 max-w-2xl font-normal leading-relaxed">
+          CodeProctor combines secure Docker evaluation queues with unobtrusive computer vision telemetry—guaranteeing exam integrity while providing candidates with a world-class developer experience.
+        </p>
 
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1.2, duration: 0.8 }}
-            className="mt-8 max-w-md font-mono text-sm text-[#8A8A8A] leading-relaxed"
+        {/* Call to Action Buttons */}
+        <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto">
+          <Link
+            href="/signup"
+            className="w-full sm:w-auto px-7 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-semibold rounded-xl text-base transition-all duration-200 flex items-center justify-center gap-2 shadow-xl shadow-emerald-500/25 hover:scale-[1.02]"
           >
-            Automated code evaluation meets explainable, evidence-based proctoring. No black-box cheating flags — a transparent, timestamped record of every event.
-          </motion.p>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1.4, duration: 0.8 }}
-            className="mt-10 flex flex-wrap items-center gap-4"
+            <span>Explore Sandbox</span>
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+          <Link
+            href="/login"
+            className="w-full sm:w-auto px-7 py-3.5 bg-zinc-900/90 hover:bg-zinc-800 text-zinc-200 border border-zinc-800 font-medium rounded-xl text-base transition-all duration-200 flex items-center justify-center backdrop-blur-md hover:border-zinc-700"
           >
-            <a
-              href="#cta"
-              data-testid="hero-primary-cta"
-              className="cp-cta font-mono text-xs font-bold bg-white text-black px-7 py-4 tracking-widest hover:shadow-[5px_5px_0_0_#00FF66]"
-            >
-              LAUNCH A CONTEST →
-            </a>
-            <a
-              href="#chapter-02"
-              data-testid="hero-secondary-cta"
-              className="cp-cta font-mono text-xs font-bold border border-white/20 text-white px-7 py-4 tracking-widest hover:border-[#00FF66] hover:text-[#00FF66]"
-            >
-              SEE THE PROCTOR
-            </a>
-          </motion.div>
-        </motion.div>
+            <span>Live Demo Arena</span>
+          </Link>
+        </div>
+      </div>
 
-        {/* Right: tilting editor mock */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.94 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 1, duration: 1, ease: [0.16, 1, 0.3, 1] }}
-          className="lg:col-span-5"
-        >
-          <div ref={cardRef} className="transition-transform duration-300 ease-out will-change-transform">
-            <div className="bg-[#0A0A0A] border border-[#1A1A1A]">
-              <div className="flex items-center justify-between border-b border-[#1A1A1A] px-4 py-3">
-                <div className="flex gap-1.5">
-                  <span className="w-3 h-3 bg-[#FF3B30]" />
-                  <span className="w-3 h-3 bg-[#FFCC00]" />
-                  <span className="w-3 h-3 bg-[#00FF66]" />
-                </div>
-                <span className="font-mono text-[10px] text-[#8A8A8A]">solution.py — sandboxed</span>
+      {/* Animated Interactive Editor & Proctor Telemetry Card */}
+      <div className="relative z-10 mt-16 w-full max-w-5xl bg-zinc-900/70 border border-zinc-800/80 rounded-2xl p-4 sm:p-6 shadow-2xl backdrop-blur-md text-left transition-all duration-500 hover:border-zinc-700/80 group">
+        
+        {/* Subtle Animated Glowing Edge Border on Hover */}
+        <div className="absolute -inset-0.5 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 rounded-2xl blur opacity-30 group-hover:opacity-60 transition duration-1000 group-hover:duration-200 pointer-events-none" />
+
+        <div className="relative z-10 flex items-center justify-between pb-4 mb-4 border-b border-zinc-800/80 text-xs font-mono text-zinc-400">
+          <div className="flex items-center gap-2.5">
+            <div className="flex gap-1.5">
+              <span className="w-3 h-3 rounded-full bg-zinc-700 group-hover:bg-red-500/80 transition-colors" />
+              <span className="w-3 h-3 rounded-full bg-zinc-700 group-hover:bg-yellow-500/80 transition-colors" />
+              <span className="w-3 h-3 rounded-full bg-zinc-700 group-hover:bg-emerald-500/80 transition-colors" />
+            </div>
+            <span className="ml-2 text-zinc-300 font-sans font-medium">Problem: Zero-Trust Memory Allocator</span>
+          </div>
+          
+          <div className="flex items-center gap-3 font-sans">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-medium shadow-sm">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Proctor Sensor Active</span>
+            </span>
+            <span className="hidden sm:inline-block text-zinc-500 font-mono text-xs">Python 3.11</span>
+          </div>
+        </div>
+
+        {/* Mock Code & Animated Telemetry Grid */}
+        <div className="relative z-10 grid grid-cols-1 md:grid-cols-12 gap-6 font-mono text-xs sm:text-sm">
+          
+          {/* Code IDE Showcase */}
+          <div className="md:col-span-8 text-zinc-300 space-y-1.5 bg-zinc-950/90 p-5 rounded-xl border border-zinc-800/80 leading-relaxed overflow-x-auto shadow-inner">
+            <p className="text-zinc-500"># Validates memory register checksums in O(N) time</p>
+            <p><span className="text-purple-400 font-semibold">def</span> <span className="text-blue-400 font-semibold">find_target_registers</span>(registers, target):</p>
+            <p className="pl-4">cache = {"{}"}</p>
+            <p className="pl-4"><span className="text-purple-400 font-semibold">for</span> i, val <span className="text-purple-400 font-semibold">in</span> <span className="text-yellow-200">enumerate</span>(registers):</p>
+            <p className="pl-8">complement = target - val</p>
+            <p className="pl-8"><span className="text-purple-400 font-semibold">if</span> complement <span className="text-purple-400 font-semibold">in</span> cache:</p>
+            <p className="pl-12"><span className="text-purple-400 font-semibold">return</span> [cache[complement], i]</p>
+            <p className="pl-8">cache[val] = i</p>
+            <p className="pl-4"><span className="text-purple-400 font-semibold">return</span> [-1, -1]</p>
+
+            {/* Live Typing Execution Status Line */}
+            <div className="pt-4 mt-2 border-t border-zinc-800/60 flex items-center justify-between text-xs text-zinc-400 font-mono">
+              <span className="flex items-center gap-2 text-emerald-400">
+                <Zap className="w-3.5 h-3.5 animate-pulse text-emerald-400" />
+                <span>Docker Sandbox Evaluation Root: Verified</span>
+              </span>
+              <span className="bg-zinc-900 px-2 py-0.5 rounded text-[11px] text-zinc-400 border border-zinc-800">
+                Memory: 11.4 MB
+              </span>
+            </div>
+          </div>
+
+          {/* Animated Telemetry & Biometrics Side Panel */}
+          <div className="md:col-span-4 flex flex-col justify-between space-y-4 font-sans">
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between text-xs font-semibold text-zinc-400 uppercase tracking-wider font-mono">
+                <span>Live Telemetry Feed</span>
+                <Activity className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
               </div>
-              <div className="p-5 font-mono text-[11px] md:text-xs leading-6">
-                <div><span className="text-[#8A8A8A]">01</span>  <span className="text-[#FF3B30]">def</span> <span className="text-[#00FF66]">two_sum</span>(nums, target):</div>
-                <div><span className="text-[#8A8A8A]">02</span>    seen = {"{}"}</div>
-                <div><span className="text-[#8A8A8A]">03</span>    <span className="text-[#FF3B30]">for</span> i, n <span className="text-[#FF3B30]">in</span> enumerate(nums):</div>
-                <div><span className="text-[#8A8A8A]">04</span>      <span className="text-[#FF3B30]">if</span> target - n <span className="text-[#FF3B30]">in</span> seen:</div>
-                <div><span className="text-[#8A8A8A]">05</span>        <span className="text-[#FF3B30]">return</span> [seen[target-n], i]</div>
-                <div><span className="text-[#8A8A8A]">06</span>      seen[n] = i</div>
-                <div className="mt-4 border-t border-[#1A1A1A] pt-3 text-[#8A8A8A]">
-                  <span className="text-[#00FF66]">✓ accepted</span> · 42ms · docker:isolated · mem 12MB
+              
+              <div className="p-3.5 bg-zinc-950/90 rounded-xl border border-zinc-800/80 flex items-center justify-between text-xs transition-colors hover:border-zinc-700">
+                <span className="text-zinc-400 font-medium">Webcam Biometrics</span>
+                <span className="text-emerald-400 font-semibold flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Gaze Normal
+                </span>
+              </div>
+
+              <div className="p-3.5 bg-zinc-950/90 rounded-xl border border-zinc-800/80 flex items-center justify-between text-xs transition-colors hover:border-zinc-700">
+                <span className="text-zinc-400 font-medium">Tab Focus & Window</span>
+                <span className="text-emerald-400 font-semibold">Locked 100%</span>
+              </div>
+
+              <div className="p-3.5 bg-zinc-950/90 rounded-xl border border-zinc-800/80 flex items-center justify-between text-xs transition-colors hover:border-zinc-700">
+                <span className="text-zinc-400 font-medium">Judge Worker Speed</span>
+                <span className="text-zinc-200 font-mono font-bold">{latency}ms (BullMQ)</span>
+              </div>
+
+              {/* Animated Radar Progress Ticker */}
+              <div className="p-3.5 bg-zinc-950/90 rounded-xl border border-zinc-800/80 space-y-2 text-xs">
+                <div className="flex items-center justify-between text-zinc-400 font-mono text-[11px]">
+                  <span>TEST SHARDS EVALUATING</span>
+                  <span className="text-emerald-400">{activeTest}/8 PASSED</span>
+                </div>
+                <div className="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden">
+                  <div 
+                    className="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-500" 
+                    style={{ width: `${(activeTest / 8) * 100}%` }} 
+                  />
                 </div>
               </div>
             </div>
+
+            <div className="pt-2">
+              <div className="w-full py-3 bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 rounded-xl text-xs font-bold flex items-center justify-center gap-2 font-mono shadow-md shadow-emerald-500/5">
+                <Play className="w-3.5 h-3.5 fill-emerald-400 animate-bounce" />
+                <span>ALL TEST CASES PASSED (8/8)</span>
+              </div>
+            </div>
           </div>
-        </motion.div>
+
+        </div>
       </div>
 
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 font-mono text-[10px] tracking-[0.3em] text-[#8A8A8A] flex flex-col items-center gap-2">
-        <span>SCROLL</span>
-        <span className="w-px h-8 bg-gradient-to-b from-[#00FF66] to-transparent" />
-      </div>
     </section>
   );
-};
+}

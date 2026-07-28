@@ -1,124 +1,118 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
-import { motion, useInView } from "framer-motion";
-import { Boxes, GitBranch, Layers, Zap } from "lucide-react";
+import React from "react";
+import { Terminal, CheckCircle2, Zap, Cpu, ShieldCheck } from "lucide-react";
 
-const CODE_LINES = [
-  "$ codeproctor submit solution.cpp --lang cpp",
-  "> queued  ······ redis://jobs [pos 1]",
-  "> spawning docker container [isolated]",
-  "> limits  ······ cpu:1  mem:256mb  net:none",
-  "> running testcases ████████████ 12/12",
-  "> verdict ······ ACCEPTED  runtime 0.041s",
-];
-
-const stats = [
-  { icon: Boxes, label: "ISOLATION", value: "Docker" },
-  { icon: GitBranch, label: "QUEUE", value: "Redis-async" },
-  { icon: Layers, label: "LANGUAGES", value: "Multi" },
-  { icon: Zap, label: "LIMITS", value: "CPU / MEM" },
-];
-
-const Terminal = () => {
-  const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: true, margin: "-100px" });
-  const [lines, setLines] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (!inView) return;
-    let idx = 0;
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    const tick = () => {
-      if (idx >= CODE_LINES.length) return;
-      const current = idx;
-      setLines((prev) => [...prev, CODE_LINES[current]]);
-      idx += 1;
-      timers.push(setTimeout(tick, 520));
-    };
-    timers.push(setTimeout(tick, 300));
-    return () => timers.forEach(clearTimeout);
-  }, [inView]);
+export function ChapterSandbox() {
+  const features = [
+    {
+      title: "Multi-Language Support",
+      description: "Run code across Python 3.11, C++ (GCC 13), and Java (OpenJDK 21) out of the box.",
+      icon: Cpu,
+    },
+    {
+      title: "Strict Resource Bounding",
+      description: "Enforce exact millisecond execution time limits and memory allocation caps.",
+      icon: Zap,
+    },
+    {
+      title: "BullMQ & Redis Workers",
+      description: "Asynchronous job evaluation queues assure zero server bottlenecks during thousands of simultaneous submissions.",
+      icon: ShieldCheck,
+    },
+  ];
 
   return (
-    <div ref={ref} className="bg-[#0A0A0A] border border-[#1A1A1A]">
-      <div className="flex items-center gap-3 border-b border-[#1A1A1A] px-4 py-3">
-        <span className="w-3 h-3 bg-[#FF3B30]" />
-        <span className="w-3 h-3 bg-[#FFCC00]" />
-        <span className="w-3 h-3 bg-[#00FF66]" />
-        <span className="font-mono text-[10px] text-[#8A8A8A] ml-2">judge — bash</span>
-      </div>
-      <div className="p-5 font-mono text-[11px] md:text-xs leading-7 min-h-[240px]">
-        {lines.map((l, i) => (
-          <motion.div
-            key={i}
-            initial={{ opacity: 0, x: -8 }}
-            animate={{ opacity: 1, x: 0 }}
-            className={
-              l.includes("ACCEPTED")
-                ? "text-[#00FF66]"
-                : l.startsWith("$")
-                ? "text-white"
-                : "text-[#8A8A8A]"
-            }
-          >
-            {l}
-          </motion.div>
-        ))}
-        {lines.length < CODE_LINES.length && (
-          <span className="inline-block w-2 h-4 bg-[#00FF66] animate-pulse align-middle" />
-        )}
-      </div>
-    </div>
-  );
-};
+    <section className="py-24 px-6 max-w-7xl mx-auto" id="sandbox">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+        
+        {/* Left Column: Explanatory Content */}
+        <div className="lg:col-span-6 space-y-6">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium">
+            <Terminal className="w-3.5 h-3.5" />
+            <span>Sandboxed Judge Engine</span>
+          </div>
 
-export const ChapterSandbox = () => {
-  return (
-    <section id="chapter-01" data-testid="chapter-sandbox" className="relative py-32 md:py-48 border-b border-[#1A1A1A]">
-      <div className="max-w-[1600px] mx-auto px-6 md:px-10 grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16">
-        {/* sticky number */}
-        <div className="lg:col-span-3">
-          <div className="lg:sticky lg:top-28">
-            <span className="font-mono text-sm text-[#00FF66]">[ 01 ]</span>
-            <p className="font-mono text-xs text-[#8A8A8A] mt-4 tracking-widest">THE SANDBOX</p>
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-white leading-tight">
+            Isolated Code Execution with Guaranteed Security.
+          </h2>
+
+          <p className="text-base sm:text-lg text-zinc-400 leading-relaxed">
+            Execute untrusted candidate code inside ephemeral Docker containers without risking infrastructure integrity. Each submission is evaluated against secret verification test cases in milliseconds.
+          </p>
+
+          <div className="space-y-6 pt-4">
+            {features.map((feat, index) => {
+              const Icon = feat.icon;
+              return (
+                <div key={index} className="flex gap-4 items-start">
+                  <div className="w-10 h-10 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0 text-emerald-400">
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-semibold text-white">{feat.title}</h3>
+                    <p className="text-sm text-zinc-400 mt-1 leading-relaxed">{feat.description}</p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
-        <div className="lg:col-span-9">
-          <motion.h2
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-            className="font-display font-extrabold uppercase text-5xl md:text-7xl tracking-tighter leading-[0.9]"
-          >
-            Isolated <span className="text-stroke">&amp;</span> Async
-          </motion.h2>
-          <motion.p
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.2, duration: 0.8 }}
-            className="mt-6 max-w-xl font-mono text-sm text-[#8A8A8A] leading-relaxed"
-          >
-            Every submission runs inside a resource-limited Docker container — malicious or faulty programs can never touch the host. Requests flow through a Redis-backed job queue, evaluated asynchronously across multiple languages.
-          </motion.p>
+        {/* Right Column: Clean Minimalist Terminal Card */}
+        <div className="lg:col-span-6">
+          <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-6 shadow-xl backdrop-blur-sm space-y-5">
+            <div className="flex items-center justify-between border-b border-zinc-800/80 pb-4 text-xs font-mono text-zinc-400">
+              <span className="text-zinc-300 font-sans font-medium">Worker Queue: evaluation-pipeline-v7</span>
+              <span className="text-emerald-400 font-mono flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Active Shards: 4/4</span>
+              </span>
+            </div>
 
-          <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-            <Terminal />
-            <div className="grid grid-cols-2 border-t border-l border-[#1A1A1A]">
-              {stats.map((s) => (
-                <div key={s.label} className="border-b border-r border-[#1A1A1A] p-6 group hover:bg-[#0A0A0A] transition-colors">
-                  <s.icon className="w-5 h-5 text-[#00FF66] mb-6" strokeWidth={1.5} />
-                  <div className="font-mono text-[10px] text-[#8A8A8A] tracking-widest">{s.label}</div>
-                  <div className="font-display font-bold text-2xl mt-1">{s.value}</div>
+            <div className="space-y-3 font-mono text-xs">
+              <div className="p-3.5 bg-zinc-950/80 rounded-xl border border-zinc-800/60 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <span className="text-white font-semibold">submission-8A4F-C991.py</span>
                 </div>
-              ))}
+                <div className="flex items-center gap-4 text-zinc-400">
+                  <span>Python 3.11</span>
+                  <span className="text-emerald-400 font-bold">ACCEPTED 24ms</span>
+                </div>
+              </div>
+
+              <div className="p-3.5 bg-zinc-950/80 rounded-xl border border-zinc-800/60 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <span className="text-white font-semibold">submission-B309-E812.cpp</span>
+                </div>
+                <div className="flex items-center gap-4 text-zinc-400">
+                  <span>C++ (GCC 13)</span>
+                  <span className="text-emerald-400 font-bold">ACCEPTED 8ms</span>
+                </div>
+              </div>
+
+              <div className="p-3.5 bg-zinc-950/80 rounded-xl border border-zinc-800/60 flex items-center justify-between opacity-80">
+                <div className="flex items-center gap-3">
+                  <span className="w-2 h-2 rounded-full bg-yellow-400 ml-1" />
+                  <span className="text-zinc-300">submission-C192-A704.java</span>
+                </div>
+                <div className="flex items-center gap-4 text-zinc-400">
+                  <span>Java 21</span>
+                  <span className="text-yellow-400">EVALUATING...</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-xs text-emerald-400 font-sans flex items-center justify-between">
+              <span>Average Judge Latency</span>
+              <span className="font-mono font-bold text-sm">18.4 ms per submission</span>
             </div>
           </div>
         </div>
+
       </div>
     </section>
   );
-};
+}
