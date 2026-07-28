@@ -1,16 +1,24 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { User, Mail, Lock, ArrowRight, Terminal, ShieldCheck, Eye, EyeOff, Loader2 } from "lucide-react";
-import { signUp } from "@/lib/auth-client";
+import { User, Mail, Lock, ArrowRight, ShieldCheck, Eye, EyeOff, Loader2 } from "lucide-react";
+import { signUp, useSession } from "@/lib/auth-client";
 import { Logo } from "@/components/landing/Logo";
 
 export default function SignUpPage() {
   const router = useRouter();
+  const { data: session, isPending } = useSession();
+
+  useEffect(() => {
+    if (!isPending && session?.user) {
+      router.replace("/dashboard");
+    }
+  }, [session, isPending, router]);
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -22,8 +30,8 @@ export default function SignUpPage() {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirmPassword) {
-      toast.error("[ SECURITY ALERT: PASSPHRASE MISMATCH ]", {
-        description: "Your passphrase confirmation does not equal your initial passphrase.",
+      toast.error("Password mismatch", {
+        description: "Your password confirmation does not match your initial password.",
       });
       return;
     }
@@ -33,21 +41,21 @@ export default function SignUpPage() {
         email,
         password,
         name,
-        callbackURL: "/",
+        callbackURL: "/dashboard",
       });
       if (error) {
-        toast.error(`[ AUTH EXCEPTION: ${error.message || "REGISTER FAILED"} ]`, {
-          description: "Could not initialize identity in Neon PostgreSQL.",
+        toast.error("Registration failed", {
+          description: error.message || "Could not complete registration. Please try again.",
         });
       } else {
-        toast.success("[ SUCCESS: IDENTITY ESTABLISHED ]", {
-          description: "Welcome to CodeProctor. Your telemetry profile is now active.",
+        toast.success("Account created successfully!", {
+          description: "Welcome to CodeProctor. Initializing your developer workspace...",
         });
-        router.push("/");
+        router.push("/dashboard");
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to contact authentication server.";
-      toast.error("[ SYSTEM FAULT: CONNECTION REFUSED ]", {
+      toast.error("Connection error", {
         description: msg,
       });
     } finally {
@@ -56,53 +64,47 @@ export default function SignUpPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#030303] text-white flex items-center justify-center p-6 relative overflow-hidden cp-grain w-full">
-      {/* Background cyber grid & ambient lighting */}
-      <div className="absolute inset-0 cp-grid-bg opacity-30 pointer-events-none" />
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[350px] hero-glow opacity-50 pointer-events-none" />
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col items-center justify-start sm:justify-center py-12 px-4 sm:px-6 relative font-sans selection:bg-emerald-500/20 selection:text-emerald-400 w-full overflow-y-auto">
+      
+      {/* Subtle Glowing Emerald Backdrop */}
+      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[350px] bg-emerald-500/10 blur-[130px] pointer-events-none rounded-full" />
 
       <motion.div
-        initial={{ opacity: 0, y: 30 }}
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
         className="w-full max-w-md relative z-10 my-8"
       >
         {/* Brand Nav Header */}
-        <div className="flex items-center justify-between mb-6 px-1">
+        <div className="flex items-center justify-between mb-8 px-1">
           <Link href="/" className="flex items-center group">
             <Logo size={26} className="group-hover:opacity-90 transition-opacity" />
           </Link>
-          <span className="font-mono text-[10px] text-[#8A8A8A] tracking-widest uppercase">[ REGISTRATION ]</span>
+          <span className="text-xs font-medium text-zinc-400">Registration</span>
         </div>
 
-        {/* Cyber-Terminal Card Box */}
-        <div className="bg-[#0A0A0A] border border-[#1A1A1A] p-8 md:p-10 relative shadow-2xl overflow-hidden group">
-          {/* Neon green top status border */}
-          <div className="absolute top-0 left-0 right-0 h-[3px] bg-[#00FF66]" />
-
-          <div className="flex items-center gap-2 mb-3 text-[#00FF66] font-mono text-[10px] tracking-widest uppercase">
-            <Terminal className="w-3.5 h-3.5" />
-            <span>IDENTITY // GENERATE</span>
-          </div>
-
-          <h1 className="font-display font-extrabold uppercase text-4xl tracking-tight leading-none mb-3">
-            CREATE <span className="text-stroke">ACCOUNT</span>
+        {/* Minimalist Signup Card */}
+        <div className="bg-zinc-900/70 border border-zinc-800/80 p-8 sm:p-10 rounded-2xl relative shadow-2xl backdrop-blur-md">
+          
+          <h1 className="font-bold text-2xl sm:text-3xl text-white tracking-tight mb-2">
+            Create account
           </h1>
-          <p className="font-mono text-xs text-[#8A8A8A] mb-8 leading-relaxed">
-            Register your developer profile to compete in timed arenas, deploy practice code, or orchestrate fair proctored assessments.
+          <p className="text-sm text-zinc-400 mb-8 leading-relaxed">
+            Register your profile to compete in proctored assessments or test code in isolated Docker sandboxes.
           </p>
 
           <form className="space-y-5" onSubmit={handleSignUp}>
+            
             {/* Full Name Field */}
-            <div className="space-y-2 group/input">
+            <div className="space-y-2">
               <label
-                className="block text-[11px] font-mono uppercase text-[#8A8A8A] tracking-widest"
+                className="block text-xs font-medium text-zinc-300"
                 htmlFor="full-name"
               >
-                CANDIDATE NAME
+                Full name
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#606060] group-focus-within/input:text-[#00FF66] transition-colors">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-500">
                   <User className="w-4 h-4" />
                 </div>
                 <input
@@ -114,47 +116,47 @@ export default function SignUpPage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   disabled={loading}
-                  className="w-full pl-11 pr-4 py-3.5 bg-[#030303] border border-[#1A1A1A] focus:border-[#00FF66] text-white font-mono text-xs transition-colors outline-none placeholder:text-[#505050] rounded-none disabled:opacity-50"
+                  className="w-full pl-11 pr-4 py-3 bg-zinc-950 border border-zinc-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-zinc-100 text-sm transition-all outline-none placeholder:text-zinc-600 rounded-xl disabled:opacity-50"
                 />
               </div>
             </div>
 
             {/* Email Field */}
-            <div className="space-y-2 group/input">
+            <div className="space-y-2">
               <label
-                className="block text-[11px] font-mono uppercase text-[#8A8A8A] tracking-widest"
+                className="block text-xs font-medium text-zinc-300"
                 htmlFor="email"
               >
-                EMAIL ADDRESS
+                Email address
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#606060] group-focus-within/input:text-[#00FF66] transition-colors">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-500">
                   <Mail className="w-4 h-4" />
                 </div>
                 <input
                   id="email"
                   name="email"
                   type="email"
-                  placeholder="solver@domain.dev"
+                  placeholder="name@company.com"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={loading}
-                  className="w-full pl-11 pr-4 py-3.5 bg-[#030303] border border-[#1A1A1A] focus:border-[#00FF66] text-white font-mono text-xs transition-colors outline-none placeholder:text-[#505050] rounded-none disabled:opacity-50"
+                  className="w-full pl-11 pr-4 py-3 bg-zinc-950 border border-zinc-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-zinc-100 text-sm transition-all outline-none placeholder:text-zinc-600 rounded-xl disabled:opacity-50"
                 />
               </div>
             </div>
 
             {/* Password Field */}
-            <div className="space-y-2 group/input">
+            <div className="space-y-2">
               <label
-                className="block text-[11px] font-mono uppercase text-[#8A8A8A] tracking-widest"
+                className="block text-xs font-medium text-zinc-300"
                 htmlFor="password"
               >
-                SECURITY PASSPHRASE
+                Password
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#606060] group-focus-within/input:text-[#00FF66] transition-colors">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-500">
                   <Lock className="w-4 h-4" />
                 </div>
                 <input
@@ -166,33 +168,33 @@ export default function SignUpPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={loading}
-                  className="w-full pl-11 pr-11 py-3.5 bg-[#030303] border border-[#1A1A1A] focus:border-[#00FF66] text-white font-mono text-xs transition-colors outline-none placeholder:text-[#505050] rounded-none disabled:opacity-50"
+                  className="w-full pl-11 pr-11 py-3 bg-zinc-950 border border-zinc-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-zinc-100 text-sm transition-all outline-none placeholder:text-zinc-600 rounded-xl disabled:opacity-50"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? "Hide passphrase" : "Show passphrase"}
-                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-[#606060] hover:text-[#00FF66] transition-colors cursor-pointer"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-zinc-500 hover:text-zinc-300 transition-colors"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              <div className="flex items-center gap-1.5 text-[10px] font-mono text-[#606060] pt-1">
-                <ShieldCheck className="w-3 h-3 text-[#00FF66]" />
-                <span>Minimum 8 characters · SHA-256 hashed</span>
+              <div className="flex items-center gap-1.5 text-xs text-zinc-500 pt-1">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span>Minimum 8 characters with encryption</span>
               </div>
             </div>
 
             {/* Confirm Password Field */}
-            <div className="space-y-2 group/input">
+            <div className="space-y-2">
               <label
-                className="block text-[11px] font-mono uppercase text-[#8A8A8A] tracking-widest"
+                className="block text-xs font-medium text-zinc-300"
                 htmlFor="confirm-password"
               >
-                CONFIRM PASSPHRASE
+                Confirm password
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#606060] group-focus-within/input:text-[#00FF66] transition-colors">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-500">
                   <Lock className="w-4 h-4" />
                 </div>
                 <input
@@ -204,33 +206,33 @@ export default function SignUpPage() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   disabled={loading}
-                  className="w-full pl-11 pr-11 py-3.5 bg-[#030303] border border-[#1A1A1A] focus:border-[#00FF66] text-white font-mono text-xs transition-colors outline-none placeholder:text-[#505050] rounded-none disabled:opacity-50"
+                  className="w-full pl-11 pr-11 py-3 bg-zinc-950 border border-zinc-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-zinc-100 text-sm transition-all outline-none placeholder:text-zinc-600 rounded-xl disabled:opacity-50"
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirm(!showConfirm)}
-                  aria-label={showConfirm ? "Hide confirmation passphrase" : "Show confirmation passphrase"}
-                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-[#606060] hover:text-[#00FF66] transition-colors cursor-pointer"
+                  aria-label={showConfirm ? "Hide confirmation password" : "Show confirmation password"}
+                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-zinc-500 hover:text-zinc-300 transition-colors"
                 >
                   {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
 
-            {/* Brutalist Submit Button */}
+            {/* Submit Button */}
             <button
               type="submit"
               disabled={loading}
-              className="cp-cta w-full font-mono text-xs font-bold bg-white text-black py-4 px-6 tracking-widest hover:shadow-[5px_5px_0_0_#00FF66] mt-6 uppercase flex items-center justify-center gap-2 cursor-pointer transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full font-semibold text-sm bg-emerald-500 hover:bg-emerald-400 text-zinc-950 py-3.5 px-6 rounded-xl shadow-lg shadow-emerald-500/20 mt-4 flex items-center justify-center gap-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed hover:scale-[1.01]"
             >
               {loading ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin text-black" />
-                  <span>INITIALIZING... [ ■■■□□ ]</span>
+                  <Loader2 className="w-4 h-4 animate-spin text-zinc-950" />
+                  <span>Creating account...</span>
                 </>
               ) : (
                 <>
-                  <span>INITIALIZE PROFILE</span>
+                  <span>Get Started</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
@@ -238,24 +240,24 @@ export default function SignUpPage() {
           </form>
 
           {/* Switch to Sign In */}
-          <div className="text-center mt-8 pt-6 border-t border-[#1A1A1A]">
-            <p className="font-mono text-xs text-[#8A8A8A]">
-              Existing identity verified?{" "}
+          <div className="text-center mt-8 pt-6 border-t border-zinc-800/80">
+            <p className="text-xs text-zinc-400">
+              Already have an account?{" "}
               <Link
                 href="/login"
-                className="text-white font-bold hover:text-[#00FF66] transition-colors tracking-wider"
+                className="text-emerald-400 font-semibold hover:text-emerald-300 transition-colors ml-1"
               >
-                [ SIGN IN ]
+                Sign in
               </Link>
             </p>
           </div>
         </div>
 
         {/* Footer info */}
-        <div className="mt-8 text-center flex items-center justify-center gap-6 font-mono text-[10px] text-[#606060] tracking-widest uppercase">
-          <span>DOCKER ISOLATED</span>
+        <div className="mt-8 text-center flex items-center justify-center gap-6 text-xs text-zinc-500">
+          <span>Docker Isolated</span>
           <span>•</span>
-          <span>EXPLAINABLE PROCTORING</span>
+          <span>AI Proctored</span>
         </div>
       </motion.div>
     </div>
