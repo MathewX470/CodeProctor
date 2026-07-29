@@ -12,17 +12,17 @@ export function Marquee() {
   ];
 
   return (
-    <section className="py-12 border-y border-zinc-800/60 bg-zinc-900/20">
+    <section className="py-12 border-y border-white/[0.06] bg-white/[0.02]">
       <div className="max-w-7xl mx-auto px-6 text-center">
         <p className="text-xs uppercase font-medium tracking-wider text-zinc-500 mb-8">
-          Built for High-Stakes Competitions, University Examinations, and Enterprise Recruiting
+          Built for High-Stakes Competitions, University Exams, and Enterprise Recruiting
         </p>
         <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-6">
           {items.map((item, i) => {
             const Icon = item.icon;
             return (
               <div key={i} className="flex items-center gap-2.5 text-sm font-medium text-zinc-400 hover:text-zinc-200 transition-colors">
-                <Icon className="w-4 h-4 text-emerald-500/80" />
+                <Icon className="w-4 h-4 text-zinc-500" />
                 <span>{item.label}</span>
               </div>
             );

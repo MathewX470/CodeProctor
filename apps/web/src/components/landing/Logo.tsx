@@ -10,7 +10,7 @@ interface LogoMarkProps {
 export const LogoMark: React.FC<LogoMarkProps> = ({
   size = 28,
   className = "",
-  pupil = "#10b981", // smooth emerald-500
+  pupil = "#a1a1aa",
   stroke = "#ffffff",
 }) => (
   <svg
