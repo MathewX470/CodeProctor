@@ -4,6 +4,7 @@ import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 import { DashboardNav } from "@/components/dashboard/DashboardNav";
+import { AnimatedGrid } from "@/components/dashboard/AnimatedGrid";
 import { Loader2, ShieldAlert } from "lucide-react";
 import { Toaster } from "sonner";
 
@@ -19,10 +20,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (isPending) {
     return (
-      <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col items-center justify-center font-sans p-6">
-        <div className="flex items-center gap-3 border border-zinc-800 px-6 py-4 rounded-xl bg-zinc-900 text-emerald-400 shadow-2xl">
-          <Loader2 className="w-5 h-5 animate-spin text-emerald-500" />
-          <span className="text-sm font-medium text-zinc-200">Initializing workspace...</span>
+      <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col items-center justify-center font-sans p-6">
+        <div className="flex items-center gap-3 border border-slate-200 px-6 py-4 rounded-xl bg-white shadow-xl">
+          <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
+          <span className="text-sm font-medium text-slate-600">Initializing workspace...</span>
         </div>
       </div>
     );
@@ -30,17 +31,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (!session?.user) {
     return (
-      <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col items-center justify-center font-sans p-6">
-        <div className="flex items-center gap-3 border border-red-500/30 px-6 py-4 rounded-xl bg-zinc-900 text-red-400 shadow-2xl">
-          <ShieldAlert className="w-5 h-5 text-red-400" />
-          <span className="text-sm font-medium text-zinc-200">Redirecting to sign-in...</span>
+      <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col items-center justify-center font-sans p-6">
+        <div className="flex items-center gap-3 border border-red-200 px-6 py-4 rounded-xl bg-white text-red-500 shadow-xl">
+          <ShieldAlert className="w-5 h-5 text-red-500" />
+          <span className="text-sm font-medium text-slate-700">Redirecting to sign-in...</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-emerald-500/20 selection:text-emerald-400 relative overflow-x-hidden flex flex-col">
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-blue-100 selection:text-blue-900 relative overflow-x-hidden flex flex-col">
+      {/* React Bits style animated background - Light Mode */}
+      <AnimatedGrid color="rgba(15, 23, 42, 0.05)" gridSize={40} className="fixed z-0" />
+
       <Toaster
         position="bottom-right"
         theme="dark"
@@ -64,11 +68,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </main>
 
       {/* Footer Minimal Status */}
-      <footer className="border-t border-zinc-800/80 bg-zinc-950 py-6 px-6 text-center text-xs text-zinc-500">
+      <footer className="border-t border-slate-200 bg-white/80 backdrop-blur-sm py-6 px-6 text-center text-xs text-slate-500 relative z-10">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <span>CodeProctor Arena &bull; Zero-Trust Sandbox & AI Proctoring</span>
-          <div className="flex items-center gap-2 text-emerald-400 font-medium">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          <div className="flex items-center gap-2 text-slate-600 font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
             <span>Telemetry Stream: Active</span>
           </div>
         </div>

@@ -36,7 +36,7 @@ export function DashboardNav() {
   ];
 
   return (
-    <header className="sticky top-0 z-50 bg-zinc-950/80 backdrop-blur-md border-b border-zinc-800/80">
+    <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200">
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
         
         {/* Left: Brand Logo & Route Tabs */}
@@ -45,7 +45,7 @@ export function DashboardNav() {
             <Logo size={26} className="group-hover:opacity-90 transition-opacity" />
           </Link>
 
-          <nav className="hidden lg:flex items-center gap-2 font-sans text-xs text-zinc-400">
+          <nav className="hidden lg:flex items-center gap-2 font-sans text-xs text-slate-500">
             {navItems.map((item) => {
               const isActive = pathname === item.href || (item.href === "/problems" && pathname.startsWith("/problems"));
               return (
@@ -54,8 +54,8 @@ export function DashboardNav() {
                   href={item.href}
                   className={`px-3.5 py-1.5 rounded-full transition-all font-medium ${
                     isActive
-                      ? "text-emerald-400 bg-emerald-500/10 border border-emerald-500/20"
-                      : "hover:text-zinc-200 border border-transparent hover:bg-zinc-900"
+                      ? "text-blue-700 bg-blue-50 border border-blue-100 shadow-sm"
+                      : "hover:text-slate-900 border border-transparent hover:bg-slate-100"
                   }`}
                 >
                   {item.label}
@@ -68,26 +68,26 @@ export function DashboardNav() {
         {/* Right: Proctor Sensor Badge & Candidate Profile */}
         <div className="flex items-center gap-4">
           {/* Proctor Readiness Badge */}
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-xs font-medium text-emerald-400">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-slate-50 border border-slate-200 shadow-sm rounded-full text-xs font-medium text-slate-600">
+            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+            <ShieldCheck className="w-3.5 h-3.5 text-slate-500" />
             <span>Sensors Nominal</span>
           </div>
 
           {/* Candidate Profile Box */}
-          <div className="flex items-center gap-3 pl-2 sm:border-l sm:border-zinc-800">
+          <div className="flex items-center gap-3 pl-2 sm:border-l sm:border-slate-200">
             <div className="hidden md:flex flex-col text-right">
-              <span className="text-xs text-zinc-200 font-medium tracking-tight">
+              <span className="text-xs text-slate-900 font-medium tracking-tight">
                 {session?.user?.name || session?.user?.email?.split("@")[0] || "Candidate"}
               </span>
-              <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-mono">
+              <span className="text-[10px] text-slate-500 uppercase tracking-wider font-mono">
                 Verified Profile
               </span>
             </div>
 
             <button
               onClick={handleSignOut}
-              className="px-3.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-400 hover:text-zinc-200 transition-all font-medium text-xs rounded-xl flex items-center gap-2 shadow-inner"
+              className="px-3.5 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-500 hover:text-slate-900 transition-all font-medium text-xs rounded-xl flex items-center gap-2 shadow-sm"
               title="Sign Out"
             >
               <LogOut className="w-3.5 h-3.5" />

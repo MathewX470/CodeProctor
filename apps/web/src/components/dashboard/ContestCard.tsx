@@ -63,80 +63,80 @@ export function ContestCard({
   const proctorMode = settings?.proctoringMode || "AI Proctored";
 
   return (
-    <div className={`bg-zinc-900/60 border rounded-2xl p-6 relative flex flex-col justify-between transition-all duration-300 backdrop-blur-sm ${
-      isActive ? "border-emerald-500/60 shadow-[0_0_25px_rgba(16,185,129,0.15)] bg-zinc-900/80" : "border-zinc-800 hover:border-zinc-700"
+    <div className={`bg-white border rounded-2xl p-6 relative flex flex-col justify-between transition-all duration-300 ${
+      isActive ? "border-blue-200 shadow-lg shadow-blue-50" : "border-slate-200 hover:border-slate-300 shadow-sm"
     }`}>
       
       {/* Top Status Bar & Clock */}
       <div>
-        <div className="flex flex-wrap items-center justify-between gap-3 pb-4 mb-4 border-b border-zinc-800/80 text-xs">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-4 mb-4 border-b border-slate-100 text-xs">
           <div className="flex items-center gap-2">
-            <span className={`inline-block w-2 h-2 rounded-full ${isActive ? "bg-emerald-500 animate-pulse" : isUpcoming ? "bg-amber-400" : "bg-zinc-600"}`} />
-            <span className={`font-semibold ${isActive ? "text-emerald-400" : isUpcoming ? "text-amber-400" : "text-zinc-500"}`}>
+            <span className={`inline-block w-2 h-2 rounded-full ${isActive ? "bg-blue-500 animate-pulse" : isUpcoming ? "bg-orange-400" : "bg-slate-300"}`} />
+            <span className={`font-semibold ${isActive ? "text-blue-700" : isUpcoming ? "text-orange-600" : "text-slate-500"}`}>
               {isActive ? "Live Arena Active" : isUpcoming ? "Upcoming Contest" : "Completed"}
             </span>
           </div>
 
-          <div className="flex items-center gap-1.5 bg-zinc-950 px-3 py-1 border border-zinc-800 rounded-full text-zinc-300 font-mono text-xs">
-            <Clock className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+          <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1 border border-slate-200 rounded-full text-slate-700 font-mono text-xs">
+            <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
             <span>{timerText.replace("&bull;", "•")}</span>
           </div>
         </div>
 
         {/* Title & Specs */}
-        <h3 className="text-lg sm:text-xl font-bold tracking-tight text-white mb-2 group-hover:text-emerald-400 transition-colors">
+        <h3 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 mb-2 group-hover:text-blue-700 transition-colors">
           {title}
         </h3>
-        <p className="text-sm text-zinc-400 mb-6 line-clamp-2 leading-relaxed">
+        <p className="text-sm text-slate-500 mb-6 line-clamp-2 leading-relaxed">
           {description || "Proctored competitive coding tournament under strict algorithmic validation protocols."}
         </p>
 
         {/* Proctoring Readiness Requirements */}
         <div className="flex flex-wrap gap-2 mb-6 text-xs">
-          <div className="px-3 py-1 bg-zinc-950 border border-zinc-800 rounded-lg text-emerald-400 font-medium flex items-center gap-1.5">
-            <ShieldCheck className="w-3.5 h-3.5" />
+          <div className="px-3 py-1 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-medium flex items-center gap-1.5">
+            <ShieldCheck className="w-3.5 h-3.5 text-slate-500" />
             <span>Mode: {proctorMode.replace(/_/g, " ")}</span>
           </div>
           {settings?.requireCamera && (
-            <div className="px-3 py-1 bg-zinc-950 border border-zinc-800 rounded-lg text-amber-400 font-medium">
+            <div className="px-3 py-1 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-medium">
               Webcam Required
             </div>
           )}
           {settings?.detectTabSwitch && (
-            <div className="px-3 py-1 bg-zinc-950 border border-zinc-800 rounded-lg text-zinc-400">
+            <div className="px-3 py-1 bg-slate-50 border border-slate-200 rounded-lg text-slate-500">
               Tab-Lock Active
             </div>
           )}
-          <div className="px-3 py-1 bg-zinc-950 border border-zinc-800 rounded-lg text-zinc-400 font-mono">
+          <div className="px-3 py-1 bg-slate-50 border border-slate-200 rounded-lg text-slate-500 font-mono">
             {duration} mins
           </div>
         </div>
       </div>
 
       {/* Action Button */}
-      <div className="pt-4 border-t border-zinc-800/80 flex items-center justify-between">
-        <span className="text-xs text-zinc-500 font-mono">
+      <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+        <span className="text-xs text-slate-400 font-mono">
           ID: {id.slice(-8)}
         </span>
 
         {isActive ? (
           <button
             onClick={() => toast.success("Arena Initialized", { description: "Entering assessment sandbox..." })}
-            className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-semibold text-xs rounded-xl flex items-center gap-2 transition-all shadow-md shadow-emerald-500/20 hover:scale-[1.02]"
+            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl flex items-center gap-2 transition-all shadow-md shadow-blue-200 hover:scale-[1.02]"
           >
-            <Play className="w-3.5 h-3.5 fill-zinc-950" />
+            <Play className="w-3.5 h-3.5 fill-white" />
             <span>Enter Arena</span>
           </button>
         ) : isUpcoming ? (
           <button
             onClick={() => toast.info("Registered for Contest", { description: "We will notify you via telemetry when ignition occurs." })}
-            className="px-5 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700/80 hover:border-emerald-500/40 text-xs font-medium rounded-xl transition-all flex items-center gap-1.5"
+            className="px-5 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 hover:border-slate-300 text-xs font-medium rounded-xl transition-all flex items-center gap-1.5 shadow-sm"
           >
             <span>Register Notification</span>
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
         ) : (
-          <span className="px-4 py-2 font-medium text-xs text-zinc-500 bg-zinc-950 border border-zinc-800 rounded-xl cursor-not-allowed">
+          <span className="px-4 py-2 font-medium text-xs text-slate-400 bg-slate-100 border border-slate-200 rounded-xl cursor-not-allowed">
             Archived
           </span>
         )}
