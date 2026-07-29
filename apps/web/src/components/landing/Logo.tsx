@@ -7,13 +7,11 @@ interface LogoMarkProps {
   stroke?: string;
 }
 
-// CodeProctor logo mark: a camera/viewfinder frame (proctoring) wrapping a
-// "< ■ >" code-eye (execution being watched). Brutalist, sharp, neon green pupil.
 export const LogoMark: React.FC<LogoMarkProps> = ({
   size = 28,
   className = "",
-  pupil = "#00FF66",
-  stroke = "#FFFFFF",
+  pupil = "#a1a1aa",
+  stroke = "#ffffff",
 }) => (
   <svg
     width={size}
@@ -24,18 +22,18 @@ export const LogoMark: React.FC<LogoMarkProps> = ({
     aria-hidden="true"
     role="img"
   >
-    {/* Viewfinder outer surveillance camera frame */}
-    <path d="M3 8 V3 H8" stroke={stroke} strokeWidth="2" strokeLinecap="square" />
-    <path d="M24 3 H29 V8" stroke={stroke} strokeWidth="2" strokeLinecap="square" />
-    <path d="M29 24 V29 H24" stroke={stroke} strokeWidth="2" strokeLinecap="square" />
-    <path d="M8 29 H3 V24" stroke={stroke} strokeWidth="2" strokeLinecap="square" />
+    {/* Viewfinder outer frame */}
+    <path d="M4 9 V5 C4 4.4 4.4 4 5 4 H9" stroke={stroke} strokeWidth="2" strokeLinecap="round" />
+    <path d="M23 4 H27 C27.6 4 28 4.4 28 5 V9" stroke={stroke} strokeWidth="2" strokeLinecap="round" />
+    <path d="M28 23 V27 C28 27.6 27.6 28 27 28 H23" stroke={stroke} strokeWidth="2" strokeLinecap="round" />
+    <path d="M9 28 H5 C4.4 28 4 27.6 4 27 V23" stroke={stroke} strokeWidth="2" strokeLinecap="round" />
     
-    {/* Sandboxed code syntax chevrons "<" and ">" */}
-    <path d="M14 11 L10 16 L14 21" stroke={stroke} strokeWidth="2" strokeLinecap="square" strokeLinejoin="miter" />
-    <path d="M18 11 L22 16 L18 21" stroke={stroke} strokeWidth="2" strokeLinecap="square" strokeLinejoin="miter" />
+    {/* Code syntax chevrons "<" and ">" */}
+    <path d="M13 12 L10 16 L13 20" stroke={stroke} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M19 12 L22 16 L19 20" stroke={stroke} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     
-    {/* Active monitoring telemetry pupil */}
-    <rect x="14.5" y="14.5" width="3" height="3" fill={pupil} className="animate-pulse" />
+    {/* Center sensor pupil */}
+    <circle cx="16" cy="16" r="2" fill={pupil} />
   </svg>
 );
 
@@ -47,16 +45,16 @@ interface LogoProps {
 }
 
 export const Logo: React.FC<LogoProps> = ({
-  size = 28,
+  size = 26,
   className = "",
   textClassName = "",
   hideText = false,
 }) => (
-  <span className={`inline-flex items-center gap-2.5 ${className}`}>
+  <span className={`inline-flex items-center gap-2.5 font-sans ${className}`}>
     <LogoMark size={size} />
     {!hideText && (
-      <span className={`font-mono text-sm font-extrabold tracking-tight ${textClassName}`}>
-        CodeProctor<span className="text-[#00FF66] font-normal">_</span>
+      <span className={`text-base font-bold tracking-tight text-white ${textClassName}`}>
+        CodeProctor
       </span>
     )}
   </span>
