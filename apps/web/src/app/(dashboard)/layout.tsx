@@ -20,10 +20,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (isPending) {
     return (
-      <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col items-center justify-center font-sans p-6">
-        <div className="flex items-center gap-3 border border-slate-200 px-6 py-4 rounded-xl bg-white shadow-xl">
-          <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
-          <span className="text-sm font-medium text-slate-600">Initializing workspace...</span>
+      <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 flex flex-col items-center justify-center font-sans p-6 transition-colors duration-300">
+        <div className="flex items-center gap-3 border border-slate-200 dark:border-zinc-800 px-6 py-4 rounded-xl bg-white dark:bg-zinc-900 shadow-xl dark:shadow-2xl transition-colors">
+          <Loader2 className="w-5 h-5 animate-spin text-slate-400 dark:text-zinc-400" />
+          <span className="text-sm font-medium text-slate-600 dark:text-zinc-200">Initializing workspace...</span>
         </div>
       </div>
     );
@@ -31,19 +31,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (!session?.user) {
     return (
-      <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col items-center justify-center font-sans p-6">
-        <div className="flex items-center gap-3 border border-red-200 px-6 py-4 rounded-xl bg-white text-red-500 shadow-xl">
-          <ShieldAlert className="w-5 h-5 text-red-500" />
-          <span className="text-sm font-medium text-slate-700">Redirecting to sign-in...</span>
+      <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 flex flex-col items-center justify-center font-sans p-6 transition-colors duration-300">
+        <div className="flex items-center gap-3 border border-red-200 dark:border-red-500/30 px-6 py-4 rounded-xl bg-white dark:bg-zinc-900 text-red-500 dark:text-red-400 shadow-xl dark:shadow-2xl transition-colors">
+          <ShieldAlert className="w-5 h-5 text-red-500 dark:text-red-400" />
+          <span className="text-sm font-medium text-slate-700 dark:text-zinc-200">Redirecting to sign-in...</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-blue-100 selection:text-blue-900 relative overflow-x-hidden flex flex-col">
-      {/* React Bits style animated background - Light Mode */}
-      <AnimatedGrid color="rgba(15, 23, 42, 0.05)" gridSize={40} className="fixed z-0" />
+    <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 font-sans selection:bg-blue-100 selection:text-blue-900 dark:selection:bg-zinc-800 dark:selection:text-zinc-100 relative overflow-x-hidden flex flex-col transition-colors duration-300">
+      {/* React Bits style animated background */}
+      <AnimatedGrid gridSize={40} className="fixed z-0" />
 
       <Toaster
         position="bottom-right"
@@ -68,11 +68,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </main>
 
       {/* Footer Minimal Status */}
-      <footer className="border-t border-slate-200 bg-white/80 backdrop-blur-sm py-6 px-6 text-center text-xs text-slate-500 relative z-10">
+      <footer className="border-t border-slate-200 dark:border-zinc-800/80 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-sm py-6 px-6 text-center text-xs text-slate-500 dark:text-zinc-500 relative z-10 transition-colors">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <span>CodeProctor Arena &bull; Zero-Trust Sandbox & AI Proctoring</span>
-          <div className="flex items-center gap-2 text-slate-600 font-medium">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+          <div className="flex items-center gap-2 text-slate-600 dark:text-zinc-300 font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 dark:bg-zinc-400 animate-pulse" />
             <span>Telemetry Stream: Active</span>
           </div>
         </div>

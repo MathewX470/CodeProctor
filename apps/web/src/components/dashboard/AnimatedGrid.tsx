@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
+import { useTheme } from "next-themes";
 
 interface AnimatedGridProps {
   gridSize?: number;
@@ -12,10 +13,12 @@ interface AnimatedGridProps {
 export function AnimatedGrid({
   gridSize = 40,
   squareSize = 4,
-  color = "rgba(255, 255, 255, 0.15)",
   className = "",
 }: AnimatedGridProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const { resolvedTheme } = useTheme();
+  
+  const color = resolvedTheme === "dark" ? "rgba(255, 255, 255, 0.2)" : "rgba(15, 23, 42, 0.15)";
 
   useEffect(() => {
     const canvas = canvasRef.current;
