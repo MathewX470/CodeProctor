@@ -55,6 +55,8 @@ export default function App() {
 
     return () => {
       cancelAnimationFrame(raf);
+      document.removeEventListener("click", onClick);
+      lenis.destroy();
     };
   }, [session, isPending]);
 

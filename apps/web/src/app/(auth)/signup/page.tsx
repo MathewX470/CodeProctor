@@ -64,10 +64,10 @@ export default function SignUpPage() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col items-center justify-start sm:justify-center py-12 px-4 sm:px-6 relative font-sans selection:bg-emerald-500/20 selection:text-emerald-400 w-full overflow-y-auto">
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col items-center justify-start sm:justify-center py-12 px-4 sm:px-6 relative font-sans selection:bg-zinc-800 selection:text-zinc-100 w-full overflow-y-auto">
       
-      {/* Subtle Glowing Emerald Backdrop */}
-      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[350px] bg-emerald-500/10 blur-[130px] pointer-events-none rounded-full" />
+      {/* Subtle Neutral Backdrop Glow */}
+      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[350px] bg-white/[0.02] blur-[130px] pointer-events-none rounded-full" />
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -80,17 +80,16 @@ export default function SignUpPage() {
           <Link href="/" className="flex items-center group">
             <Logo size={26} className="group-hover:opacity-90 transition-opacity" />
           </Link>
-          <span className="text-xs font-medium text-zinc-400">Registration</span>
         </div>
 
         {/* Minimalist Signup Card */}
-        <div className="bg-zinc-900/70 border border-zinc-800/80 p-8 sm:p-10 rounded-2xl relative shadow-2xl backdrop-blur-md">
+        <div className="bg-white/[0.03] border border-white/[0.06] p-8 sm:p-10 rounded-2xl relative shadow-2xl backdrop-blur-md">
           
           <h1 className="font-bold text-2xl sm:text-3xl text-white tracking-tight mb-2">
             Create account
           </h1>
           <p className="text-sm text-zinc-400 mb-8 leading-relaxed">
-            Register your profile to compete in proctored assessments or test code in isolated Docker sandboxes.
+            Register your profile to compete in proctored assessments.
           </p>
 
           <form className="space-y-5" onSubmit={handleSignUp}>
@@ -116,7 +115,7 @@ export default function SignUpPage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   disabled={loading}
-                  className="w-full pl-11 pr-4 py-3 bg-zinc-950 border border-zinc-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-zinc-100 text-sm transition-all outline-none placeholder:text-zinc-600 rounded-xl disabled:opacity-50"
+                  className="w-full pl-11 pr-4 py-3 bg-zinc-950/50 border border-white/[0.08] focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 text-zinc-100 text-sm transition-all outline-none placeholder:text-zinc-600 rounded-xl disabled:opacity-50"
                 />
               </div>
             </div>
@@ -142,7 +141,7 @@ export default function SignUpPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={loading}
-                  className="w-full pl-11 pr-4 py-3 bg-zinc-950 border border-zinc-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-zinc-100 text-sm transition-all outline-none placeholder:text-zinc-600 rounded-xl disabled:opacity-50"
+                  className="w-full pl-11 pr-4 py-3 bg-zinc-950/50 border border-white/[0.08] focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 text-zinc-100 text-sm transition-all outline-none placeholder:text-zinc-600 rounded-xl disabled:opacity-50"
                 />
               </div>
             </div>
@@ -168,7 +167,7 @@ export default function SignUpPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={loading}
-                  className="w-full pl-11 pr-11 py-3 bg-zinc-950 border border-zinc-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-zinc-100 text-sm transition-all outline-none placeholder:text-zinc-600 rounded-xl disabled:opacity-50"
+                  className="w-full pl-11 pr-11 py-3 bg-zinc-950/50 border border-white/[0.08] focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 text-zinc-100 text-sm transition-all outline-none placeholder:text-zinc-600 rounded-xl disabled:opacity-50"
                 />
                 <button
                   type="button"
@@ -180,7 +179,7 @@ export default function SignUpPage() {
                 </button>
               </div>
               <div className="flex items-center gap-1.5 text-xs text-zinc-500 pt-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <ShieldCheck className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
                 <span>Minimum 8 characters with encryption</span>
               </div>
             </div>
@@ -206,7 +205,7 @@ export default function SignUpPage() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   disabled={loading}
-                  className="w-full pl-11 pr-11 py-3 bg-zinc-950 border border-zinc-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-zinc-100 text-sm transition-all outline-none placeholder:text-zinc-600 rounded-xl disabled:opacity-50"
+                  className="w-full pl-11 pr-11 py-3 bg-zinc-950/50 border border-white/[0.08] focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 text-zinc-100 text-sm transition-all outline-none placeholder:text-zinc-600 rounded-xl disabled:opacity-50"
                 />
                 <button
                   type="button"
@@ -223,7 +222,7 @@ export default function SignUpPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full font-semibold text-sm bg-emerald-500 hover:bg-emerald-400 text-zinc-950 py-3.5 px-6 rounded-xl shadow-lg shadow-emerald-500/20 mt-4 flex items-center justify-center gap-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed hover:scale-[1.01]"
+              className="w-full font-semibold text-sm bg-white hover:bg-zinc-200 text-zinc-950 py-3.5 px-6 rounded-xl shadow-lg shadow-white/5 mt-4 flex items-center justify-center gap-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed hover:scale-[1.01]"
             >
               {loading ? (
                 <>
@@ -240,24 +239,17 @@ export default function SignUpPage() {
           </form>
 
           {/* Switch to Sign In */}
-          <div className="text-center mt-8 pt-6 border-t border-zinc-800/80">
+          <div className="text-center mt-8 pt-6 border-t border-white/[0.06]">
             <p className="text-xs text-zinc-400">
               Already have an account?{" "}
               <Link
                 href="/login"
-                className="text-emerald-400 font-semibold hover:text-emerald-300 transition-colors ml-1"
+                className="text-zinc-100 font-semibold hover:text-white transition-colors ml-1"
               >
                 Sign in
               </Link>
             </p>
           </div>
-        </div>
-
-        {/* Footer info */}
-        <div className="mt-8 text-center flex items-center justify-center gap-6 text-xs text-zinc-500">
-          <span>Docker Isolated</span>
-          <span>•</span>
-          <span>AI Proctored</span>
         </div>
       </motion.div>
     </div>
