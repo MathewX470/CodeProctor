@@ -9,8 +9,7 @@ import {
   Code2, 
   ArrowUpRight, 
   Activity,
-  Flame,
-  Terminal
+  Flame
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -51,10 +50,6 @@ export default async function DashboardPage() {
         
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 dark:bg-white/[0.03] border border-blue-100 dark:border-white/[0.06] rounded-full text-xs font-medium text-blue-700 dark:text-zinc-300 mb-4 transition-colors">
-              <Terminal className="w-3.5 h-3.5 text-blue-500 dark:text-zinc-400" />
-              <span>Assessment Workspace Ready</span>
-            </div>
             <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-white mb-2 transition-colors">
               Candidate <span className="text-blue-600 dark:text-zinc-300 font-semibold">Dashboard</span>
             </h1>
@@ -63,20 +58,6 @@ export default async function DashboardPage() {
             </p>
           </div>
 
-          <div className="bg-slate-50 dark:bg-zinc-950/80 border border-slate-200 dark:border-zinc-800/80 p-4 sm:p-5 rounded-xl flex flex-col gap-3 shrink-0 shadow-sm dark:shadow-inner transition-colors">
-            <div className="flex items-center justify-between gap-6 text-xs font-medium">
-              <span className="text-slate-500 dark:text-zinc-500">Sensor Status:</span>
-              <span className="text-slate-700 dark:text-zinc-300 flex items-center gap-1.5 font-semibold">
-                <span className="w-2 h-2 rounded-full bg-green-500 dark:bg-zinc-400 animate-pulse" />
-                All Systems Nominal
-              </span>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 text-xs border-t border-slate-200 dark:border-zinc-800/80 pt-3 text-slate-600 dark:text-zinc-400">
-              <span className="px-2.5 py-1 bg-white dark:bg-white/[0.05] border border-slate-200 dark:border-white/[0.05] shadow-sm dark:shadow-none rounded-lg text-slate-700 dark:text-zinc-300">Webcam Ready</span>
-              <span className="px-2.5 py-1 bg-white dark:bg-white/[0.05] border border-slate-200 dark:border-white/[0.05] shadow-sm dark:shadow-none rounded-lg text-slate-700 dark:text-zinc-300">Tab-Lock Active</span>
-              <span className="px-2.5 py-1 bg-green-50 dark:bg-white/[0.05] border border-green-100 dark:border-white/[0.05] text-green-700 dark:text-zinc-300 rounded-lg font-medium">Verified</span>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -257,10 +238,6 @@ export default async function DashboardPage() {
                 Judge Telemetry Logs
               </h2>
             </div>
-            <span className="text-xs text-blue-700 dark:text-zinc-300 bg-blue-50 dark:bg-white/[0.05] px-2.5 py-0.5 border border-blue-100 dark:border-white/[0.05] rounded-full font-medium flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 dark:bg-zinc-400 animate-ping" />
-              Live Feed
-            </span>
           </div>
 
           <div className="bg-white dark:bg-zinc-900/40 border border-slate-200 dark:border-zinc-800/80 p-5 rounded-2xl space-y-4 relative shadow-sm dark:shadow-none transition-colors">
