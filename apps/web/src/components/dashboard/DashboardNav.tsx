@@ -56,7 +56,7 @@ export function DashboardNav() {
         
         {/* Left: Brand Logo & Route Tabs */}
         <div className="flex items-center gap-8">
-          <Link href="/dashboard" className="flex items-center group">
+          <Link href="/dashboard" className="flex items-center group text-slate-900 dark:text-white">
             <Logo size={26} className="group-hover:opacity-90 transition-opacity" />
           </Link>
 
