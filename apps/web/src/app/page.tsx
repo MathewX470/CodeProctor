@@ -18,8 +18,11 @@ export default function App() {
   const router = useRouter();
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      sessionStorage.removeItem("isLoggingOut");
+    if (typeof window !== "undefined" && sessionStorage.getItem("isLoggingOut") === "true") {
+      if (!isPending && !session?.user) {
+        sessionStorage.removeItem("isLoggingOut");
+      }
+      return;
     }
     
     if (!isPending && session?.user) {

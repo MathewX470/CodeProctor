@@ -44,7 +44,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     if (!isPending && !session?.user) {
       hasRedirected.current = true;
-      if (typeof window !== "undefined" && sessionStorage.getItem("isLoggingOut") === "true") {
+      const isLoggingOut = typeof window !== "undefined" && sessionStorage.getItem("isLoggingOut") === "true";
+      if (isLoggingOut) {
         router.replace("/");
       } else {
         router.replace("/login");
