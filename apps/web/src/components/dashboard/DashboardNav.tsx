@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession, signOut } from "@/lib/auth-client";
 import { Logo } from "@/components/landing/Logo";
-import { ShieldCheck, LogOut, User, Settings, Sun, Moon, ChevronDown } from "lucide-react";
+import { LogOut, User, Settings, Sun, Moon, ChevronDown, Bell } from "lucide-react";
 import { toast } from "sonner";
 import { useTheme } from "next-themes";
 
@@ -45,9 +45,11 @@ export function DashboardNav() {
   };
 
   const navItems = [
-    { label: "Dashboard", href: "/dashboard" },
-    { label: "Problem Bank", href: "/problems" },
-    { label: "Telemetry & Logs", href: "/dashboard#activity" },
+    { label: "Home", href: "/dashboard" },
+    { label: "Contests", href: "/dashboard#contests" },
+    { label: "Practice", href: "/problems" },
+    { label: "Submissions", href: "/dashboard#activity" },
+    { label: "Leaderboard", href: "/leaderboard" },
   ];
 
   return (
@@ -80,8 +82,14 @@ export function DashboardNav() {
           </nav>
         </div>
 
-        {/* Right: Proctor Sensor Badge & Profile Dropdown */}
-        <div className="flex items-center gap-4">
+        {/* Right: Notifications & Profile Dropdown */}
+        <div className="flex items-center gap-2 sm:gap-4">
+
+          {/* Notifications Bell */}
+          <button className="relative p-2 rounded-full text-slate-500 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-900 transition-colors">
+            <Bell className="w-5 h-5" />
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500 border-2 border-white dark:border-zinc-950"></span>
+          </button>
 
           {/* Profile Dropdown */}
           <div className="relative" ref={dropdownRef}>
