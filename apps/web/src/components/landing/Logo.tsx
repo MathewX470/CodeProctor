@@ -10,8 +10,8 @@ interface LogoMarkProps {
 export const LogoMark: React.FC<LogoMarkProps> = ({
   size = 28,
   className = "",
-  pupil = "#a1a1aa",
-  stroke = "#ffffff",
+  pupil = "currentColor",
+  stroke = "currentColor",
 }) => (
   <svg
     width={size}
@@ -53,7 +53,7 @@ export const Logo: React.FC<LogoProps> = ({
   <span className={`inline-flex items-center gap-2.5 font-sans ${className}`}>
     <LogoMark size={size} />
     {!hideText && (
-      <span className={`text-base font-bold tracking-tight text-white ${textClassName}`}>
+      <span className={`text-base font-bold tracking-tight ${textClassName}`}>
         CodeProctor
       </span>
     )}

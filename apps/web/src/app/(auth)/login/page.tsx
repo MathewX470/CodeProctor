@@ -13,16 +13,24 @@ export default function LoginPage() {
   const router = useRouter();
   const { data: session, isPending } = useSession();
 
-  useEffect(() => {
-    if (!isPending && session?.user) {
-      router.replace("/dashboard");
-    }
-  }, [session, isPending, router]);
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isPending && session?.user && !loading) {
+      import("@/app/actions/auth").then(({ getUserRoleServer }) => {
+        getUserRoleServer().then((role) => {
+          if (role === "ADMIN") {
+            router.replace("/admin");
+          } else {
+            router.replace("/dashboard");
+          }
+        });
+      });
+    }
+  }, [session, isPending, router, loading]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +39,6 @@ export default function LoginPage() {
       const { error } = await signIn.email({
         email,
         password,
-        callbackURL: "/dashboard",
       });
       if (error) {
         toast.error("Sign in failed", {
@@ -39,9 +46,18 @@ export default function LoginPage() {
         });
       } else {
         toast.success("Welcome back!", {
-          description: "Redirecting to your dashboard...",
+          description: "Authenticating profile...",
         });
-        router.push("/dashboard");
+        
+        // Dynamically import to avoid client-side error if there's an issue with top-level await imports
+        const { getUserRoleServer } = await import("@/app/actions/auth");
+        const role = await getUserRoleServer();
+        
+        if (role === "ADMIN") {
+          router.push("/admin");
+        } else {
+          router.push("/dashboard");
+        }
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Unable to contact authentication server.";

@@ -12,9 +12,30 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const { data: session, isPending } = useSession();
 
+  const hasRedirected = React.useRef(false);
+
   useEffect(() => {
+    if (hasRedirected.current) return;
+
     if (!isPending && !session?.user) {
-      router.replace("/login");
+      hasRedirected.current = true;
+      const isLoggingOut = typeof window !== "undefined" && sessionStorage.getItem("isLoggingOut") === "true";
+      if (isLoggingOut) {
+        router.replace("/");
+      } else {
+        router.replace("/login");
+      }
+      return;
+    }
+
+    if (!isPending && session?.user) {
+      import("@/app/actions/auth").then(({ getUserRoleServer }) => {
+        getUserRoleServer().then((role) => {
+          if (role === "ADMIN") {
+            router.replace("/admin");
+          }
+        });
+      });
     }
   }, [session, isPending, router]);
 
