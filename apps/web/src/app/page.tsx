@@ -18,6 +18,10 @@ export default function App() {
   const router = useRouter();
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("isLoggingOut");
+    }
+    
     if (!isPending && session?.user) {
       router.replace("/dashboard");
     }

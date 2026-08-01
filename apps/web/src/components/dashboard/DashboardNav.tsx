@@ -30,16 +30,18 @@ export function DashboardNav() {
 
   const handleSignOut = async () => {
     try {
+      sessionStorage.setItem("isLoggingOut", "true");
       await signOut({
         fetchOptions: {
           onSuccess: () => {
             toast.success("Signed out successfully");
-            router.push("/login");
+            router.push("/");
           },
         },
       });
     } catch (e) {
       console.error(e);
+      sessionStorage.removeItem("isLoggingOut");
       toast.error("Failed to disconnect session");
     }
   };
