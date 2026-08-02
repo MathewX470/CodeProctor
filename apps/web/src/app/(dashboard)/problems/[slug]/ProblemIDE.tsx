@@ -1,0 +1,374 @@
+"use client";
+
+import React, { useState } from "react";
+import { Panel, Group, Separator } from "react-resizable-panels";
+import Editor from "@monaco-editor/react";
+import { useTheme } from "next-themes";
+import { Play, Send, CheckCircle2, XCircle, AlertCircle, Loader2, Code2, Clock, MemoryStick, Tag, ChevronDown, Terminal } from "lucide-react";
+import { toast } from "sonner";
+import dynamic from "next/dynamic";
+import "@uiw/react-markdown-preview/markdown.css";
+
+const MDPreview = dynamic(
+  () => import("@uiw/react-markdown-preview").then((mod) => mod.default),
+  { ssr: false, loading: () => <div className="animate-pulse h-10 w-full bg-slate-200 dark:bg-zinc-800 rounded"></div> }
+);
+
+type ProblemData = {
+  id: string;
+  title: string;
+  slug: string;
+  description: string;
+  difficulty: string;
+  timeLimit: number;
+  memoryLimit: number;
+  tags: string[];
+  samples: any[];
+  templates: any[];
+};
+
+export function ProblemIDE({ problem }: { problem: ProblemData }) {
+  const { resolvedTheme } = useTheme();
+  
+  // State
+  const [selectedLang, setSelectedLang] = useState<string>(
+    problem.templates.length > 0 ? problem.templates[0].languageId : ""
+  );
+  
+  const [codeMap, setCodeMap] = useState<Record<string, string>>(() => {
+    const initialMap: Record<string, string> = {};
+    problem.templates.forEach(t => {
+      initialMap[t.languageId] = t.boilerplate;
+    });
+    return initialMap;
+  });
+
+  const [isRunning, setIsRunning] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [outputTab, setOutputTab] = useState<"testcases" | "result">("testcases");
+
+  // Get current template for UI
+  const currentTemplate = problem.templates.find(t => t.languageId === selectedLang);
+  const currentCode = selectedLang ? (codeMap[selectedLang] || "") : "";
+
+  const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newLang = e.target.value;
+    setSelectedLang(newLang);
+  };
+
+  const handleCodeChange = (value: string | undefined) => {
+    if (value !== undefined && selectedLang) {
+      setCodeMap(prev => ({ ...prev, [selectedLang]: value }));
+    }
+  };
+
+  const handleRun = async () => {
+    setIsRunning(true);
+    setOutputTab("result");
+    try {
+      // Mock run process
+      await new Promise(r => setTimeout(r, 1500));
+      toast.success("Run finished! (Mock)");
+    } catch (e) {
+      toast.error("Execution failed.");
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    setOutputTab("result");
+    try {
+      // Mock submit process
+      await new Promise(r => setTimeout(r, 2000));
+      toast.success("Submission Accepted! (Mock)");
+    } catch (e) {
+      toast.error("Submission failed.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Convert language slug to monaco language identifier
+  const getMonacoLanguage = (slug: string) => {
+    if (!slug) return "plaintext";
+    if (slug.includes("python")) return "python";
+    if (slug.includes("java")) return "java";
+    if (slug.includes("cpp") || slug.includes("c++")) return "cpp";
+    if (slug.includes("c#")) return "csharp";
+    if (slug.includes("go")) return "go";
+    if (slug.includes("rust")) return "rust";
+    if (slug.includes("javascript")) return "javascript";
+    if (slug.includes("typescript")) return "typescript";
+    return slug; // Fallback
+  };
+
+  return (
+    <div className="h-[calc(100vh-64px)] w-full overflow-hidden bg-white dark:bg-[#1e1e1e] flex flex-col">
+      {/* Navbar for IDE */}
+      <div className="px-4 py-2 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between bg-slate-50 dark:bg-zinc-900 shrink-0 z-10">
+        <div className="flex items-center gap-4">
+          <h1 className="font-bold text-slate-800 dark:text-zinc-100 flex items-center gap-2">
+            <span className="text-blue-600 dark:text-blue-500 font-mono opacity-50">#</span>
+            {problem.title}
+          </h1>
+          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+            problem.difficulty === "EASY" ? "bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400" :
+            problem.difficulty === "MEDIUM" ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400" :
+            "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400"
+          }`}>
+            {problem.difficulty}
+          </span>
+        </div>
+        
+        <div className="flex items-center gap-3">
+          {problem.templates.length > 0 && (
+            <div className="relative">
+              <select 
+                value={selectedLang} 
+                onChange={handleLanguageChange}
+                className="appearance-none bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-800 dark:text-zinc-200 text-sm font-medium py-1.5 pl-3 pr-8 rounded-lg outline-none focus:ring-2 focus:ring-blue-500/50"
+              >
+                {problem.templates.map(t => (
+                  <option key={t.languageId} value={t.languageId}>{t.languageName}</option>
+                ))}
+              </select>
+              <ChevronDown className="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 dark:text-zinc-500" />
+            </div>
+          )}
+          
+          <button 
+            onClick={handleRun}
+            disabled={isRunning || isSubmitting}
+            className="flex items-center gap-2 px-4 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+          >
+            {isRunning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+            Run
+          </button>
+          
+          <button 
+            onClick={handleSubmit}
+            disabled={isRunning || isSubmitting}
+            className="flex items-center gap-2 px-4 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm disabled:opacity-50"
+          >
+            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            Submit
+          </button>
+        </div>
+      </div>
+
+      {/* Split Pane Area */}
+      <div className="flex-1 overflow-hidden">
+        <Group orientation="horizontal" className="h-full bg-slate-200 dark:bg-zinc-950">
+          
+          {/* LEFT PANE: Description */}
+          <Panel defaultSize={40} minSize={25}>
+            <div className="h-full bg-white dark:bg-zinc-900 flex flex-col overflow-hidden">
+              {/* Tab Bar */}
+              <div className="flex items-center gap-6 px-4 border-b border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/50 shrink-0">
+                <button className="py-3 text-sm font-medium border-b-2 border-blue-600 text-blue-600 dark:text-blue-400 flex items-center gap-2">
+                  <Code2 className="w-4 h-4" /> Description
+                </button>
+              </div>
+              
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto p-6 prose prose-sm dark:prose-invert max-w-none">
+                {/* Meta details */}
+                <div className="flex flex-wrap items-center gap-4 mb-6 not-prose border-b border-slate-100 dark:border-zinc-800 pb-4">
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-zinc-400">
+                    <Clock className="w-3.5 h-3.5" />
+                    {problem.timeLimit}ms
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-zinc-400">
+                    <MemoryStick className="w-3.5 h-3.5" />
+                    {problem.memoryLimit / 1000}MB
+                  </div>
+                  {problem.tags.length > 0 && (
+                    <div className="flex items-center gap-2 ml-auto">
+                      <Tag className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-500" />
+                      <div className="flex gap-1.5">
+                        {problem.tags.map(tag => (
+                          <span key={tag} className="px-2 py-0.5 bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 rounded text-[10px] font-medium border border-slate-200 dark:border-zinc-700">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Markdown */}
+                <div data-color-mode={resolvedTheme === "dark" ? "dark" : "light"}>
+                  <MDPreview 
+                    source={problem.description} 
+                    style={{ backgroundColor: "transparent", color: "inherit", fontFamily: "inherit" }} 
+                  />
+                </div>
+
+                {/* Samples */}
+                {problem.samples.length > 0 && (
+                  <div className="mt-8 pt-6 border-t border-slate-100 dark:border-zinc-800 not-prose">
+                    <h3 className="text-lg font-bold text-slate-800 dark:text-zinc-100 mb-4">Examples</h3>
+                    <div className="space-y-6">
+                      {problem.samples.map((sample, i) => (
+                         <div key={i} className="bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700 rounded-lg p-4">
+                           <div className="font-semibold text-slate-700 dark:text-zinc-300 text-sm mb-2">Example {i + 1}:</div>
+                           <div className="space-y-3 font-mono text-sm">
+                             <div>
+                               <span className="text-slate-500 dark:text-zinc-400 select-none">Input: </span>
+                               <span className="text-slate-900 dark:text-zinc-200">{sample.input}</span>
+                             </div>
+                             <div>
+                               <span className="text-slate-500 dark:text-zinc-400 select-none">Output: </span>
+                               <span className="text-slate-900 dark:text-zinc-200 font-bold">{sample.expectedOutput}</span>
+                             </div>
+                             {sample.explanation && (
+                               <div className="text-slate-600 dark:text-zinc-400 font-sans mt-2 pt-2 border-t border-slate-200 dark:border-zinc-700">
+                                 <span className="font-medium text-slate-500 dark:text-zinc-500">Explanation:</span> {sample.explanation}
+                               </div>
+                             )}
+                           </div>
+                         </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </Panel>
+
+          {/* DRAG HANDLE */}
+          <Separator className="w-1.5 bg-slate-200 dark:bg-zinc-800 hover:bg-blue-400 dark:hover:bg-blue-500/50 transition-colors cursor-col-resize active:bg-blue-500 flex items-center justify-center relative z-20 group">
+             <div className="w-0.5 h-8 bg-slate-300 dark:bg-zinc-600 group-hover:bg-white rounded-full transition-colors" />
+          </Separator>
+
+          {/* RIGHT PANE: Code Editor & Results */}
+          <Panel defaultSize={60} minSize={30}>
+            <Group orientation="vertical">
+              
+              {/* EDITOR TOP */}
+              <Panel defaultSize={70} minSize={30}>
+                <div className="h-full bg-white dark:bg-[#1e1e1e] flex flex-col relative">
+                  {!selectedLang ? (
+                    <div className="flex-1 flex items-center justify-center text-slate-400 dark:text-zinc-500 text-sm">
+                      Select a language to start coding
+                    </div>
+                  ) : (
+                    <Editor
+                      height="100%"
+                      language={getMonacoLanguage(currentTemplate?.slug || "")}
+                      theme={resolvedTheme === "dark" ? "vs-dark" : "light"}
+                      value={currentCode}
+                      onChange={handleCodeChange}
+                      options={{
+                        minimap: { enabled: false },
+                        fontSize: 14,
+                        fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                        lineHeight: 24,
+                        padding: { top: 16, bottom: 16 },
+                        scrollBeyondLastLine: false,
+                        smoothScrolling: true,
+                        cursorBlinking: "smooth",
+                        cursorSmoothCaretAnimation: "on",
+                        formatOnPaste: true,
+                        renderLineHighlight: "all",
+                      }}
+                      loading={
+                        <div className="flex h-full items-center justify-center text-blue-500">
+                          <Loader2 className="w-6 h-6 animate-spin" />
+                        </div>
+                      }
+                    />
+                  )}
+                </div>
+              </Panel>
+
+              {/* VERTICAL DRAG HANDLE */}
+              <Separator className="h-1.5 bg-slate-200 dark:bg-zinc-800 hover:bg-blue-400 dark:hover:bg-blue-500/50 transition-colors cursor-row-resize active:bg-blue-500 flex items-center justify-center relative z-20 group">
+                 <div className="h-0.5 w-8 bg-slate-300 dark:bg-zinc-600 group-hover:bg-white rounded-full transition-colors" />
+              </Separator>
+
+              {/* EDITOR BOTTOM: Console / Test Cases */}
+              <Panel defaultSize={30} minSize={15}>
+                <div className="h-full bg-white dark:bg-zinc-900 flex flex-col">
+                  {/* Console Tabs */}
+                  <div className="flex items-center px-4 border-b border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/50 shrink-0">
+                    <button 
+                      onClick={() => setOutputTab("testcases")}
+                      className={`px-4 py-2 text-xs font-medium border-b-2 transition-colors ${
+                        outputTab === "testcases" 
+                          ? "border-blue-600 text-slate-800 dark:text-zinc-100" 
+                          : "border-transparent text-slate-500 hover:text-slate-700 dark:text-zinc-400 dark:hover:text-zinc-300"
+                      }`}
+                    >
+                      Test Cases
+                    </button>
+                    <button 
+                      onClick={() => setOutputTab("result")}
+                      className={`px-4 py-2 text-xs font-medium border-b-2 transition-colors ${
+                        outputTab === "result" 
+                          ? "border-blue-600 text-slate-800 dark:text-zinc-100" 
+                          : "border-transparent text-slate-500 hover:text-slate-700 dark:text-zinc-400 dark:hover:text-zinc-300"
+                      }`}
+                    >
+                      Test Result
+                    </button>
+                  </div>
+                  
+                  {/* Console Content */}
+                  <div className="flex-1 overflow-y-auto p-4 bg-slate-50 dark:bg-zinc-950">
+                    {outputTab === "testcases" && (
+                       <div className="space-y-4">
+                         {problem.samples.map((sample, i) => (
+                           <div key={i} className="mb-6 last:mb-0">
+                             <div className="text-xs font-semibold text-slate-500 dark:text-zinc-500 uppercase tracking-wider mb-2">Case {i + 1}</div>
+                             <div className="space-y-3">
+                               <div>
+                                 <div className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium mb-1">INPUT</div>
+                                 <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded p-2.5 font-mono text-xs text-slate-800 dark:text-zinc-300 whitespace-pre-wrap">
+                                   {sample.input}
+                                 </div>
+                               </div>
+                               <div>
+                                 <div className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium mb-1">EXPECTED OUTPUT</div>
+                                 <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded p-2.5 font-mono text-xs text-slate-800 dark:text-zinc-300 whitespace-pre-wrap">
+                                   {sample.expectedOutput}
+                                 </div>
+                               </div>
+                             </div>
+                           </div>
+                         ))}
+                         {problem.samples.length === 0 && (
+                           <div className="text-sm text-slate-500 dark:text-zinc-500">No public test cases available to preview.</div>
+                         )}
+                       </div>
+                    )}
+
+                    {outputTab === "result" && (
+                      <div className="h-full flex flex-col justify-center items-center text-center p-6 text-slate-500 dark:text-zinc-500">
+                        {isRunning || isSubmitting ? (
+                           <div className="flex flex-col items-center gap-3">
+                             <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+                             <span className="text-sm font-medium animate-pulse">Running Code...</span>
+                           </div>
+                        ) : (
+                          <div className="flex flex-col items-center gap-2">
+                            <Terminal className="w-8 h-8 text-slate-300 dark:text-zinc-700" />
+                            <span className="text-sm">Run or submit code to see execution results here.</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </Panel>
+
+            </Group>
+          </Panel>
+
+        </Group>
+      </div>
+    </div>
+  );
+}

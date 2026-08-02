@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { MarkdownEditor } from "./MarkdownEditor";
-import { CreateProblemInput, createProblemServer } from "@/app/actions/admin/problems";
+import { CreateProblemInput, createProblemServer, updateProblemServer } from "@/app/actions/admin/problems";
 import { createTagServer } from "@/app/actions/admin/tags";
 import { toast } from "sonner";
 import { Save, Plus, Trash2, Tag as TagIcon, Check, Code2 } from "lucide-react";
@@ -11,28 +11,38 @@ import { Save, Plus, Trash2, Tag as TagIcon, Check, Code2 } from "lucide-react";
 type Tag = { id: string; name: string };
 type Language = { id: string; name: string; slug: string };
 
-export function CreateProblemForm({ initialTags, initialLanguages }: { initialTags: Tag[], initialLanguages: Language[] }) {
+export function ProblemForm({ 
+  initialTags, 
+  initialLanguages,
+  initialData,
+  problemId
+}: { 
+  initialTags: Tag[], 
+  initialLanguages: Language[],
+  initialData?: any,
+  problemId?: string
+}) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<"basic" | "desc" | "cases" | "tags" | "templates">("basic");
 
   // Form State
   const [formData, setFormData] = useState<Omit<CreateProblemInput, "tagIds">>({
-    title: "",
-    slug: "",
-    difficulty: "EASY",
-    timeLimit: 1000,
-    memoryLimit: 256000,
-    isPublic: false,
-    description: "Write problem description here...",
-    testCases: [],
-    samples: [],
-    templates: []
+    title: initialData?.title || "",
+    slug: initialData?.slug || "",
+    difficulty: initialData?.difficulty || "EASY",
+    timeLimit: initialData?.timeLimit || 1000,
+    memoryLimit: initialData?.memoryLimit || 256000,
+    isPublic: initialData?.isPublic || false,
+    description: initialData?.description || "Write problem description here...",
+    testCases: initialData?.testCases || [],
+    samples: initialData?.samples || [],
+    templates: initialData?.templates || []
   });
 
   // Tags State
   const [availableTags, setAvailableTags] = useState<Tag[]>(initialTags);
-  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>(initialData?.tagIds || []);
   const [newTagName, setNewTagName] = useState("");
 
   const handleCreateTag = async () => {
@@ -76,14 +86,22 @@ export function CreateProblemForm({ initialTags, initialLanguages }: { initialTa
     
     setIsSubmitting(true);
     try {
-      await createProblemServer({
-        ...formData,
-        tagIds: selectedTagIds
-      });
-      toast.success("Problem created successfully!");
+      if (problemId) {
+        await updateProblemServer(problemId, {
+          ...formData,
+          tagIds: selectedTagIds
+        });
+        toast.success("Problem updated successfully!");
+      } else {
+        await createProblemServer({
+          ...formData,
+          tagIds: selectedTagIds
+        });
+        toast.success("Problem created successfully!");
+      }
       router.push("/admin/problems");
     } catch (e: any) {
-      toast.error(e.message || "Failed to create problem");
+      toast.error(e.message || "Failed to save problem");
     } finally {
       setIsSubmitting(false);
     }
@@ -129,7 +147,7 @@ export function CreateProblemForm({ initialTags, initialLanguages }: { initialTa
                   const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
                   setFormData(prev => ({ ...prev, title, slug }));
                 }}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg dark:bg-zinc-800 dark:border-zinc-700 dark:text-white"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 dark:bg-zinc-800 dark:border-zinc-700 dark:text-white"
                 placeholder="e.g. Two Sum"
               />
             </div>
@@ -140,7 +158,7 @@ export function CreateProblemForm({ initialTags, initialLanguages }: { initialTa
                 type="text" 
                 value={formData.slug}
                 onChange={e => setFormData(prev => ({ ...prev, slug: e.target.value }))}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg dark:bg-zinc-800 dark:border-zinc-700 dark:text-white font-mono text-sm"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 dark:bg-zinc-800 dark:border-zinc-700 dark:text-white font-mono text-sm"
                 placeholder="e.g. two-sum"
               />
             </div>
@@ -150,7 +168,7 @@ export function CreateProblemForm({ initialTags, initialLanguages }: { initialTa
               <select 
                 value={formData.difficulty}
                 onChange={e => setFormData(prev => ({ ...prev, difficulty: e.target.value as any }))}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg dark:bg-zinc-800 dark:border-zinc-700 dark:text-white"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 dark:bg-zinc-800 dark:border-zinc-700 dark:text-white"
               >
                 <option value="EASY">Easy</option>
                 <option value="MEDIUM">Medium</option>
@@ -164,7 +182,7 @@ export function CreateProblemForm({ initialTags, initialLanguages }: { initialTa
                 type="number" 
                 value={formData.timeLimit}
                 onChange={e => setFormData(prev => ({ ...prev, timeLimit: parseInt(e.target.value) }))}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg dark:bg-zinc-800 dark:border-zinc-700 dark:text-white"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 dark:bg-zinc-800 dark:border-zinc-700 dark:text-white"
               />
             </div>
 
@@ -174,7 +192,7 @@ export function CreateProblemForm({ initialTags, initialLanguages }: { initialTa
                 type="number" 
                 value={formData.memoryLimit}
                 onChange={e => setFormData(prev => ({ ...prev, memoryLimit: parseInt(e.target.value) }))}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg dark:bg-zinc-800 dark:border-zinc-700 dark:text-white"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 dark:bg-zinc-800 dark:border-zinc-700 dark:text-white"
               />
             </div>
 
@@ -231,7 +249,7 @@ export function CreateProblemForm({ initialTags, initialLanguages }: { initialTa
                           const newSamples = [...formData.samples];
                           newSamples[i].input = e.target.value;
                           setFormData(prev => ({ ...prev, samples: newSamples }));
-                        }} className="w-full p-2 mt-1 border rounded dark:bg-zinc-800 dark:border-zinc-700 dark:text-white font-mono text-sm" rows={3} />
+                        }} className="w-full p-2 mt-1 border rounded text-slate-900 dark:bg-zinc-800 dark:border-zinc-700 dark:text-white font-mono text-sm" rows={3} />
                       </div>
                       <div>
                         <label className="text-xs font-medium text-slate-500 dark:text-zinc-400">Expected Output</label>
@@ -239,7 +257,7 @@ export function CreateProblemForm({ initialTags, initialLanguages }: { initialTa
                           const newSamples = [...formData.samples];
                           newSamples[i].expectedOutput = e.target.value;
                           setFormData(prev => ({ ...prev, samples: newSamples }));
-                        }} className="w-full p-2 mt-1 border rounded dark:bg-zinc-800 dark:border-zinc-700 dark:text-white font-mono text-sm" rows={3} />
+                        }} className="w-full p-2 mt-1 border rounded text-slate-900 dark:bg-zinc-800 dark:border-zinc-700 dark:text-white font-mono text-sm" rows={3} />
                       </div>
                     </div>
                     <div>
@@ -248,7 +266,7 @@ export function CreateProblemForm({ initialTags, initialLanguages }: { initialTa
                         const newSamples = [...formData.samples];
                         newSamples[i].explanation = e.target.value;
                         setFormData(prev => ({ ...prev, samples: newSamples }));
-                      }} className="w-full p-2 mt-1 border rounded dark:bg-zinc-800 dark:border-zinc-700 dark:text-white text-sm" />
+                      }} className="w-full p-2 mt-1 border rounded text-slate-900 dark:bg-zinc-800 dark:border-zinc-700 dark:text-white text-sm" />
                     </div>
                   </div>
                 ))}
@@ -283,7 +301,7 @@ export function CreateProblemForm({ initialTags, initialLanguages }: { initialTa
                           const newTc = [...formData.testCases];
                           newTc[i].input = e.target.value;
                           setFormData(prev => ({ ...prev, testCases: newTc }));
-                        }} className="w-full p-2 mt-1 border rounded dark:bg-zinc-800 dark:border-zinc-700 dark:text-white font-mono text-sm" rows={3} />
+                        }} className="w-full p-2 mt-1 border rounded text-slate-900 dark:bg-zinc-800 dark:border-zinc-700 dark:text-white font-mono text-sm" rows={3} />
                       </div>
                       <div>
                         <label className="text-xs font-medium text-slate-500 dark:text-zinc-400">Expected Output</label>
@@ -291,7 +309,7 @@ export function CreateProblemForm({ initialTags, initialLanguages }: { initialTa
                           const newTc = [...formData.testCases];
                           newTc[i].expectedOutput = e.target.value;
                           setFormData(prev => ({ ...prev, testCases: newTc }));
-                        }} className="w-full p-2 mt-1 border rounded dark:bg-zinc-800 dark:border-zinc-700 dark:text-white font-mono text-sm" rows={3} />
+                        }} className="w-full p-2 mt-1 border rounded text-slate-900 dark:bg-zinc-800 dark:border-zinc-700 dark:text-white font-mono text-sm" rows={3} />
                       </div>
                     </div>
                   </div>
@@ -314,7 +332,7 @@ export function CreateProblemForm({ initialTags, initialLanguages }: { initialTa
                   value={newTagName}
                   onChange={e => setNewTagName(e.target.value)}
                   onKeyDown={e => e.key === "Enter" && handleCreateTag()}
-                  className="flex-1 px-3 py-2 border border-slate-300 rounded-lg dark:bg-zinc-800 dark:border-zinc-700 dark:text-white"
+                  className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-slate-900 dark:bg-zinc-800 dark:border-zinc-700 dark:text-white"
                   placeholder="e.g. Dynamic Programming"
                 />
                 <button 
@@ -392,7 +410,7 @@ export function CreateProblemForm({ initialTags, initialLanguages }: { initialTa
                           newTemplates[i].languageId = e.target.value;
                           setFormData(prev => ({ ...prev, templates: newTemplates }));
                         }}
-                        className="px-3 py-1.5 border border-slate-300 rounded-lg dark:bg-zinc-800 dark:border-zinc-700 dark:text-white font-medium text-sm"
+                        className="px-3 py-1.5 border border-slate-300 rounded-lg text-slate-900 dark:bg-zinc-800 dark:border-zinc-700 dark:text-white font-medium text-sm"
                       >
                         {initialLanguages.map(lang => (
                           <option key={lang.id} value={lang.id}>{lang.name}</option>
@@ -418,7 +436,7 @@ export function CreateProblemForm({ initialTags, initialLanguages }: { initialTa
                         setFormData(prev => ({ ...prev, templates: newTemplates }));
                       }} 
                       placeholder="// Write starter code here..."
-                      className="w-full p-4 border border-slate-300 rounded-lg dark:bg-zinc-950 dark:border-zinc-700 dark:text-zinc-300 font-mono text-sm min-h-[200px]" 
+                      className="w-full p-4 border border-slate-300 rounded-lg text-slate-900 dark:bg-zinc-950 dark:border-zinc-700 dark:text-zinc-300 font-mono text-sm min-h-[200px]" 
                       spellCheck={false}
                     />
                   </div>
@@ -455,7 +473,7 @@ export function CreateProblemForm({ initialTags, initialLanguages }: { initialTa
           ) : (
             <Save className="w-4 h-4" />
           )}
-          Create Problem
+          {problemId ? "Update Problem" : "Create Problem"}
         </button>
       </div>
     </div>
