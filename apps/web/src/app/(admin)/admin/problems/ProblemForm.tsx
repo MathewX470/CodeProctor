@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { MarkdownEditor } from "./MarkdownEditor";
-import { CreateProblemInput, createProblemServer } from "@/app/actions/admin/problems";
+import { CreateProblemInput, createProblemServer, updateProblemServer } from "@/app/actions/admin/problems";
 import { createTagServer } from "@/app/actions/admin/tags";
 import { toast } from "sonner";
 import { Save, Plus, Trash2, Tag as TagIcon, Check, Code2 } from "lucide-react";
@@ -11,28 +11,38 @@ import { Save, Plus, Trash2, Tag as TagIcon, Check, Code2 } from "lucide-react";
 type Tag = { id: string; name: string };
 type Language = { id: string; name: string; slug: string };
 
-export function CreateProblemForm({ initialTags, initialLanguages }: { initialTags: Tag[], initialLanguages: Language[] }) {
+export function ProblemForm({ 
+  initialTags, 
+  initialLanguages,
+  initialData,
+  problemId
+}: { 
+  initialTags: Tag[], 
+  initialLanguages: Language[],
+  initialData?: any,
+  problemId?: string
+}) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<"basic" | "desc" | "cases" | "tags" | "templates">("basic");
 
   // Form State
   const [formData, setFormData] = useState<Omit<CreateProblemInput, "tagIds">>({
-    title: "",
-    slug: "",
-    difficulty: "EASY",
-    timeLimit: 1000,
-    memoryLimit: 256000,
-    isPublic: false,
-    description: "Write problem description here...",
-    testCases: [],
-    samples: [],
-    templates: []
+    title: initialData?.title || "",
+    slug: initialData?.slug || "",
+    difficulty: initialData?.difficulty || "EASY",
+    timeLimit: initialData?.timeLimit || 1000,
+    memoryLimit: initialData?.memoryLimit || 256000,
+    isPublic: initialData?.isPublic || false,
+    description: initialData?.description || "Write problem description here...",
+    testCases: initialData?.testCases || [],
+    samples: initialData?.samples || [],
+    templates: initialData?.templates || []
   });
 
   // Tags State
   const [availableTags, setAvailableTags] = useState<Tag[]>(initialTags);
-  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>(initialData?.tagIds || []);
   const [newTagName, setNewTagName] = useState("");
 
   const handleCreateTag = async () => {
@@ -76,14 +86,22 @@ export function CreateProblemForm({ initialTags, initialLanguages }: { initialTa
     
     setIsSubmitting(true);
     try {
-      await createProblemServer({
-        ...formData,
-        tagIds: selectedTagIds
-      });
-      toast.success("Problem created successfully!");
+      if (problemId) {
+        await updateProblemServer(problemId, {
+          ...formData,
+          tagIds: selectedTagIds
+        });
+        toast.success("Problem updated successfully!");
+      } else {
+        await createProblemServer({
+          ...formData,
+          tagIds: selectedTagIds
+        });
+        toast.success("Problem created successfully!");
+      }
       router.push("/admin/problems");
     } catch (e: any) {
-      toast.error(e.message || "Failed to create problem");
+      toast.error(e.message || "Failed to save problem");
     } finally {
       setIsSubmitting(false);
     }
@@ -455,7 +473,7 @@ export function CreateProblemForm({ initialTags, initialLanguages }: { initialTa
           ) : (
             <Save className="w-4 h-4" />
           )}
-          Create Problem
+          {problemId ? "Update Problem" : "Create Problem"}
         </button>
       </div>
     </div>

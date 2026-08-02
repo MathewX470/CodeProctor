@@ -144,7 +144,7 @@ export function ProblemsTable({ initialProblems }: { initialProblems: ProblemSum
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end gap-2">
                         <Link 
-                          href={`/admin/problems/${problem.id}`}
+                          href={`/admin/problems/${problem.slug}`}
                           className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                           title="Edit Problem"
                         >

@@ -2,15 +2,15 @@ import { getSessionWithRoles } from "@/app/actions/auth";
 import { AccessDenied } from "../../components/AccessDenied";
 import { getTagsServer } from "@/app/actions/admin/tags";
 import { getLanguagesServer } from "@/app/actions/admin/problems";
-import { CreateProblemForm } from "./CreateProblemForm";
+import { ProblemForm } from "../ProblemForm";
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 
-export default async function CreateProblemPage() {
+export default async function AdminCreateProblemPage() {
   const { isSuperAdmin, permissions } = await getSessionWithRoles();
   
   if (!isSuperAdmin && !permissions.includes("RBAC_PROBLEMS")) {
-    return <AccessDenied message="You need the 'Manage Problems' permission to create problems." />;
+    return <AccessDenied message="You need the 'Manage Problems' permission to view this page." />;
   }
 
   const [tags, languages] = await Promise.all([
@@ -35,7 +35,7 @@ export default async function CreateProblemPage() {
         </div>
       </div>
 
-      <CreateProblemForm initialTags={tags} initialLanguages={languages} />
+      <ProblemForm initialTags={tags} initialLanguages={languages} />
     </div>
   );
 }

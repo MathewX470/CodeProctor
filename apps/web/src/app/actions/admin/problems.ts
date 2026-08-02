@@ -38,6 +38,31 @@ export async function getAdminProblemsServer() {
   }));
 }
 
+export async function getProblemBySlugServer(slug: string) {
+  const { isSuperAdmin, permissions } = await getSessionWithRoles();
+  
+  if (!isSuperAdmin && !permissions.includes("RBAC_PROBLEMS")) {
+    throw new Error("Unauthorized");
+  }
+
+  const problem = await prisma.problem.findUnique({
+    where: { slug },
+    include: {
+      problemTags: true,
+      testCases: { orderBy: { createdAt: 'asc' } },
+      samples: { orderBy: { order: 'asc' } },
+      languageTemplates: true
+    }
+  });
+
+  if (!problem) throw new Error("Problem not found");
+
+  return {
+    ...problem,
+    tagIds: problem.problemTags.map(pt => pt.tagId),
+    templates: problem.languageTemplates
+  };
+}
 export async function getLanguagesServer() {
   const { isSuperAdmin, permissions } = await getSessionWithRoles();
   
@@ -61,10 +86,12 @@ export type CreateProblemInput = {
   isPublic: boolean;
   description: string;
   tagIds: string[];
-  testCases: { input: string; expectedOutput: string; isHidden: boolean; weight: number }[];
-  samples: { input: string; expectedOutput: string; explanation: string; order: number }[];
-  templates: { languageId: string; boilerplate: string }[];
+  testCases: { id?: string; input: string; expectedOutput: string; isHidden: boolean; weight: number }[];
+  samples: { id?: string; input: string; expectedOutput: string; explanation: string; order: number }[];
+  templates: { id?: string; languageId: string; boilerplate: string; }[];
 };
+
+export type UpdateProblemInput = CreateProblemInput;
 
 export async function createProblemServer(data: CreateProblemInput) {
   const { session, isSuperAdmin, permissions } = await getSessionWithRoles();
@@ -143,6 +170,114 @@ export async function createProblemServer(data: CreateProblemInput) {
   });
 
   revalidatePath("/admin/problems");
+  return { success: true };
+}
+
+export async function updateProblemServer(id: string, data: UpdateProblemInput) {
+  const { isSuperAdmin, permissions } = await getSessionWithRoles();
+  
+  if (!isSuperAdmin && !permissions.includes("RBAC_PROBLEMS")) {
+    throw new Error("Unauthorized");
+  }
+
+  // Check if slug exists and belongs to another problem
+  const existing = await prisma.problem.findUnique({ where: { slug: data.slug } });
+  if (existing && existing.id !== id) {
+    throw new Error("A problem with this slug already exists.");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    // 1. Update basic info
+    await tx.problem.update({
+      where: { id },
+      data: {
+        title: data.title,
+        slug: data.slug,
+        difficulty: data.difficulty,
+        timeLimit: data.timeLimit,
+        memoryLimit: data.memoryLimit,
+        isPublic: data.isPublic,
+        description: data.description,
+      }
+    });
+
+    // 2. Update Tags (delete all, insert new)
+    await tx.problemTag.deleteMany({ where: { problemId: id } });
+    if (data.tagIds.length > 0) {
+      await tx.problemTag.createMany({
+        data: data.tagIds.map(tagId => ({
+          problemId: id,
+          tagId
+        }))
+      });
+    }
+
+    // 3. Update Test Cases
+    // Delete test cases that are not in the new list (this will cascade delete submission test cases if any exist)
+    const existingTestCases = await tx.testCase.findMany({ where: { problemId: id } });
+    const incomingTestCaseIds = data.testCases.map(tc => tc.id).filter(Boolean) as string[];
+    const testCasesToDelete = existingTestCases.filter(tc => !incomingTestCaseIds.includes(tc.id));
+    
+    if (testCasesToDelete.length > 0) {
+      await tx.testCase.deleteMany({
+        where: { id: { in: testCasesToDelete.map(tc => tc.id) } }
+      });
+    }
+
+    // Upsert test cases
+    for (const tc of data.testCases) {
+      if (tc.id) {
+        await tx.testCase.update({
+          where: { id: tc.id },
+          data: {
+            input: tc.input,
+            expectedOutput: tc.expectedOutput,
+            isHidden: tc.isHidden,
+            weight: tc.weight
+          }
+        });
+      } else {
+        await tx.testCase.create({
+          data: {
+            problemId: id,
+            input: tc.input,
+            expectedOutput: tc.expectedOutput,
+            isHidden: tc.isHidden,
+            weight: tc.weight
+          }
+        });
+      }
+    }
+
+    // 4. Update Samples
+    await tx.problemSample.deleteMany({ where: { problemId: id } });
+    if (data.samples.length > 0) {
+      await tx.problemSample.createMany({
+        data: data.samples.map(sample => ({
+          problemId: id,
+          input: sample.input,
+          expectedOutput: sample.expectedOutput,
+          explanation: sample.explanation || "",
+          order: sample.order
+        }))
+      });
+    }
+
+    // 5. Update Language Templates
+    await tx.languageTemplate.deleteMany({ where: { problemId: id } });
+    if (data.templates && data.templates.length > 0) {
+      await tx.languageTemplate.createMany({
+        data: data.templates.map(t => ({
+          problemId: id,
+          languageId: t.languageId,
+          boilerplate: t.boilerplate
+        }))
+      });
+    }
+  });
+
+  revalidatePath("/admin/problems");
+  revalidatePath(`/admin/problems/${data.slug}`);
   return { success: true };
 }
 
