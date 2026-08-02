@@ -1,9 +1,17 @@
 import React from "react";
-import { Plus, Megaphone, Trash2, Clock, Wrench } from "lucide-react";
+import { Search, Megaphone, Trash2, Edit3, Plus, Clock, Wrench } from "lucide-react";
+import { getSessionWithRoles } from "@/app/actions/auth";
+import { AccessDenied } from "../components/AccessDenied";
 
 export const dynamic = "force-dynamic";
 
-export default function AdminAnnouncementsPage() {
+export default async function AdminAnnouncementsPage() {
+  const { isSuperAdmin, permissions } = await getSessionWithRoles();
+  
+  if (!isSuperAdmin && !permissions.includes("RBAC_ANNOUNCEMENTS")) {
+    return <AccessDenied message="You need the 'Manage Announcements' permission to view this page." />;
+  }
+
   const announcements = [
     { id: 1, title: "Scheduled Downtime", type: "Maintenance", date: "2024-05-18", author: "System Admin" },
     { id: 2, title: "New Feature: AI Hint Generator", type: "Feature", date: "2024-05-15", author: "Product Team" },

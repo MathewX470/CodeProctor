@@ -1,9 +1,16 @@
 import React from "react";
 import { Search, Eye, Ban, Archive, Trash2 } from "lucide-react";
+import { getSessionWithRoles } from "@/app/actions/auth";
+import { AccessDenied } from "../components/AccessDenied";
 
 export const dynamic = "force-dynamic";
 
-export default function AdminContestsPage() {
+export default async function AdminContestsPage() {
+  const { isSuperAdmin, permissions } = await getSessionWithRoles();
+  
+  if (!isSuperAdmin && !permissions.includes("RBAC_CONTESTS")) {
+    return <AccessDenied message="You need the 'Manage Contests' permission to view this page." />;
+  }
   const contests = [
     { id: 1, name: "Weekly Arena 142", creator: "Alice Smith", participants: 412, status: "Active", created: "2024-05-10" },
     { id: 2, name: "University Qualifier", creator: "Bob Jones", participants: 1050, status: "Upcoming", created: "2024-05-15" },

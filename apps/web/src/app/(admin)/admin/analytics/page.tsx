@@ -1,9 +1,17 @@
 import React from "react";
 import { BarChart3, TrendingUp, PieChart, LineChart } from "lucide-react";
+import { getSessionWithRoles } from "@/app/actions/auth";
+import { AccessDenied } from "../components/AccessDenied";
 
 export const dynamic = "force-dynamic";
 
-export default function AdminAnalyticsPage() {
+export default async function AdminAnalyticsPage() {
+  const { isSuperAdmin, permissions } = await getSessionWithRoles();
+  
+  if (!isSuperAdmin && !permissions.includes("RBAC_ANALYTICS")) {
+    return <AccessDenied message="You need the 'View Analytics' permission to view this page." />;
+  }
+
   return (
     <div className="p-6 md:p-10 max-w-7xl mx-auto space-y-6">
       

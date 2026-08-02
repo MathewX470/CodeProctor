@@ -1,9 +1,17 @@
 import React from "react";
-import { Search, Plus, Edit3, Archive, Trash2, Eye, EyeOff } from "lucide-react";
+import { Search, Plus, Edit3, Archive, Trash2, Globe, Lock, Eye, EyeOff } from "lucide-react";
+import { getSessionWithRoles } from "@/app/actions/auth";
+import { AccessDenied } from "../components/AccessDenied";
 
 export const dynamic = "force-dynamic";
 
-export default function AdminProblemsPage() {
+export default async function AdminProblemsPage() {
+  const { isSuperAdmin, permissions } = await getSessionWithRoles();
+  
+  if (!isSuperAdmin && !permissions.includes("RBAC_PROBLEMS")) {
+    return <AccessDenied message="You need the 'Manage Problems' permission to view this page." />;
+  }
+
   const problems = [
     { id: 1, title: "Two Sum", difficulty: "EASY", author: "System", tags: ["Array", "Hash Table"], visibility: "Public" },
     { id: 2, title: "LRU Cache", difficulty: "MEDIUM", author: "System", tags: ["Design", "Linked List"], visibility: "Public" },
