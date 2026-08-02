@@ -1,6 +1,7 @@
 @import url('https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@900,800,700,500,400&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -160,4 +161,19 @@
   to {
     transform: translateX(-50%);
   }
+}
+
+/* Fix UIW Markdown Editor preview list styles overridden by Tailwind reset */
+.wmde-markdown ul {
+  list-style-type: disc !important;
+  padding-left: 2rem !important;
+}
+
+.wmde-markdown ol {
+  list-style-type: decimal !important;
+  padding-left: 2rem !important;
+}
+
+.wmde-markdown li {
+  display: list-item !important;
 }
