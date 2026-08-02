@@ -17,6 +17,11 @@ export function DashboardNav() {
   
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -142,10 +147,14 @@ export function DashboardNav() {
                   onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
                   className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-900 transition-colors text-left"
                 >
-                  {resolvedTheme === "dark" ? (
-                    <Sun className="w-4 h-4 text-slate-400 dark:text-zinc-500" />
+                  {mounted ? (
+                    resolvedTheme === "dark" ? (
+                      <Sun className="w-4 h-4 text-slate-400 dark:text-zinc-500" />
+                    ) : (
+                      <Moon className="w-4 h-4 text-slate-400 dark:text-zinc-500" />
+                    )
                   ) : (
-                    <Moon className="w-4 h-4 text-slate-400 dark:text-zinc-500" />
+                    <Sun className="w-4 h-4 opacity-0 text-slate-400 dark:text-zinc-500" />
                   )}
                   <span>Toggle Theme</span>
                 </button>
