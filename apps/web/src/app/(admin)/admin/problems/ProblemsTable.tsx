@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Search, Plus, Archive, Eye, EyeOff, Edit3 } from "lucide-react";
+import { Search, Plus, Archive, Eye, EyeOff, Edit3, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { archiveProblemServer, toggleProblemVisibilityServer } from "@/app/actions/admin/problems";
 import { toast } from "sonner";
@@ -143,6 +143,14 @@ export function ProblemsTable({ initialProblems }: { initialProblems: ProblemSum
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end gap-2">
+                        <Link 
+                          href={`/problems/${problem.slug}`}
+                          className="p-1.5 text-slate-400 hover:text-green-600 dark:hover:text-green-400 transition-colors"
+                          title="View Problem (Public)"
+                          target="_blank"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </Link>
                         <Link 
                           href={`/admin/problems/${problem.slug}`}
                           className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
