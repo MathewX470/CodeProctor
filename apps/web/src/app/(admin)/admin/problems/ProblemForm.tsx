@@ -147,7 +147,7 @@ export function ProblemForm({
                   const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
                   setFormData(prev => ({ ...prev, title, slug }));
                 }}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg dark:bg-zinc-800 dark:border-zinc-700 dark:text-white"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 dark:bg-zinc-800 dark:border-zinc-700 dark:text-white"
                 placeholder="e.g. Two Sum"
               />
             </div>
@@ -158,7 +158,7 @@ export function ProblemForm({
                 type="text" 
                 value={formData.slug}
                 onChange={e => setFormData(prev => ({ ...prev, slug: e.target.value }))}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg dark:bg-zinc-800 dark:border-zinc-700 dark:text-white font-mono text-sm"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 dark:bg-zinc-800 dark:border-zinc-700 dark:text-white font-mono text-sm"
                 placeholder="e.g. two-sum"
               />
             </div>
@@ -168,7 +168,7 @@ export function ProblemForm({
               <select 
                 value={formData.difficulty}
                 onChange={e => setFormData(prev => ({ ...prev, difficulty: e.target.value as any }))}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg dark:bg-zinc-800 dark:border-zinc-700 dark:text-white"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 dark:bg-zinc-800 dark:border-zinc-700 dark:text-white"
               >
                 <option value="EASY">Easy</option>
                 <option value="MEDIUM">Medium</option>
@@ -182,7 +182,7 @@ export function ProblemForm({
                 type="number" 
                 value={formData.timeLimit}
                 onChange={e => setFormData(prev => ({ ...prev, timeLimit: parseInt(e.target.value) }))}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg dark:bg-zinc-800 dark:border-zinc-700 dark:text-white"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 dark:bg-zinc-800 dark:border-zinc-700 dark:text-white"
               />
             </div>
 
@@ -192,7 +192,7 @@ export function ProblemForm({
                 type="number" 
                 value={formData.memoryLimit}
                 onChange={e => setFormData(prev => ({ ...prev, memoryLimit: parseInt(e.target.value) }))}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg dark:bg-zinc-800 dark:border-zinc-700 dark:text-white"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 dark:bg-zinc-800 dark:border-zinc-700 dark:text-white"
               />
             </div>
 
@@ -249,7 +249,7 @@ export function ProblemForm({
                           const newSamples = [...formData.samples];
                           newSamples[i].input = e.target.value;
                           setFormData(prev => ({ ...prev, samples: newSamples }));
-                        }} className="w-full p-2 mt-1 border rounded dark:bg-zinc-800 dark:border-zinc-700 dark:text-white font-mono text-sm" rows={3} />
+                        }} className="w-full p-2 mt-1 border rounded text-slate-900 dark:bg-zinc-800 dark:border-zinc-700 dark:text-white font-mono text-sm" rows={3} />
                       </div>
                       <div>
                         <label className="text-xs font-medium text-slate-500 dark:text-zinc-400">Expected Output</label>
@@ -257,7 +257,7 @@ export function ProblemForm({
                           const newSamples = [...formData.samples];
                           newSamples[i].expectedOutput = e.target.value;
                           setFormData(prev => ({ ...prev, samples: newSamples }));
-                        }} className="w-full p-2 mt-1 border rounded dark:bg-zinc-800 dark:border-zinc-700 dark:text-white font-mono text-sm" rows={3} />
+                        }} className="w-full p-2 mt-1 border rounded text-slate-900 dark:bg-zinc-800 dark:border-zinc-700 dark:text-white font-mono text-sm" rows={3} />
                       </div>
                     </div>
                     <div>
@@ -266,7 +266,7 @@ export function ProblemForm({
                         const newSamples = [...formData.samples];
                         newSamples[i].explanation = e.target.value;
                         setFormData(prev => ({ ...prev, samples: newSamples }));
-                      }} className="w-full p-2 mt-1 border rounded dark:bg-zinc-800 dark:border-zinc-700 dark:text-white text-sm" />
+                      }} className="w-full p-2 mt-1 border rounded text-slate-900 dark:bg-zinc-800 dark:border-zinc-700 dark:text-white text-sm" />
                     </div>
                   </div>
                 ))}
@@ -301,7 +301,7 @@ export function ProblemForm({
                           const newTc = [...formData.testCases];
                           newTc[i].input = e.target.value;
                           setFormData(prev => ({ ...prev, testCases: newTc }));
-                        }} className="w-full p-2 mt-1 border rounded dark:bg-zinc-800 dark:border-zinc-700 dark:text-white font-mono text-sm" rows={3} />
+                        }} className="w-full p-2 mt-1 border rounded text-slate-900 dark:bg-zinc-800 dark:border-zinc-700 dark:text-white font-mono text-sm" rows={3} />
                       </div>
                       <div>
                         <label className="text-xs font-medium text-slate-500 dark:text-zinc-400">Expected Output</label>
@@ -309,7 +309,7 @@ export function ProblemForm({
                           const newTc = [...formData.testCases];
                           newTc[i].expectedOutput = e.target.value;
                           setFormData(prev => ({ ...prev, testCases: newTc }));
-                        }} className="w-full p-2 mt-1 border rounded dark:bg-zinc-800 dark:border-zinc-700 dark:text-white font-mono text-sm" rows={3} />
+                        }} className="w-full p-2 mt-1 border rounded text-slate-900 dark:bg-zinc-800 dark:border-zinc-700 dark:text-white font-mono text-sm" rows={3} />
                       </div>
                     </div>
                   </div>
@@ -332,7 +332,7 @@ export function ProblemForm({
                   value={newTagName}
                   onChange={e => setNewTagName(e.target.value)}
                   onKeyDown={e => e.key === "Enter" && handleCreateTag()}
-                  className="flex-1 px-3 py-2 border border-slate-300 rounded-lg dark:bg-zinc-800 dark:border-zinc-700 dark:text-white"
+                  className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-slate-900 dark:bg-zinc-800 dark:border-zinc-700 dark:text-white"
                   placeholder="e.g. Dynamic Programming"
                 />
                 <button 
@@ -410,7 +410,7 @@ export function ProblemForm({
                           newTemplates[i].languageId = e.target.value;
                           setFormData(prev => ({ ...prev, templates: newTemplates }));
                         }}
-                        className="px-3 py-1.5 border border-slate-300 rounded-lg dark:bg-zinc-800 dark:border-zinc-700 dark:text-white font-medium text-sm"
+                        className="px-3 py-1.5 border border-slate-300 rounded-lg text-slate-900 dark:bg-zinc-800 dark:border-zinc-700 dark:text-white font-medium text-sm"
                       >
                         {initialLanguages.map(lang => (
                           <option key={lang.id} value={lang.id}>{lang.name}</option>
@@ -436,7 +436,7 @@ export function ProblemForm({
                         setFormData(prev => ({ ...prev, templates: newTemplates }));
                       }} 
                       placeholder="// Write starter code here..."
-                      className="w-full p-4 border border-slate-300 rounded-lg dark:bg-zinc-950 dark:border-zinc-700 dark:text-zinc-300 font-mono text-sm min-h-[200px]" 
+                      className="w-full p-4 border border-slate-300 rounded-lg text-slate-900 dark:bg-zinc-950 dark:border-zinc-700 dark:text-zinc-300 font-mono text-sm min-h-[200px]" 
                       spellCheck={false}
                     />
                   </div>
