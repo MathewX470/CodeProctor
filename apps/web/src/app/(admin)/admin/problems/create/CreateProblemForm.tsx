@@ -6,14 +6,15 @@ import { MarkdownEditor } from "./MarkdownEditor";
 import { CreateProblemInput, createProblemServer } from "@/app/actions/admin/problems";
 import { createTagServer } from "@/app/actions/admin/tags";
 import { toast } from "sonner";
-import { Save, Plus, Trash2, Tag as TagIcon, Check } from "lucide-react";
+import { Save, Plus, Trash2, Tag as TagIcon, Check, Code2 } from "lucide-react";
 
 type Tag = { id: string; name: string };
+type Language = { id: string; name: string; slug: string };
 
-export function CreateProblemForm({ initialTags }: { initialTags: Tag[] }) {
+export function CreateProblemForm({ initialTags, initialLanguages }: { initialTags: Tag[], initialLanguages: Language[] }) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [activeTab, setActiveTab] = useState<"basic" | "desc" | "cases" | "tags">("basic");
+  const [activeTab, setActiveTab] = useState<"basic" | "desc" | "cases" | "tags" | "templates">("basic");
 
   // Form State
   const [formData, setFormData] = useState<Omit<CreateProblemInput, "tagIds">>({
@@ -25,7 +26,8 @@ export function CreateProblemForm({ initialTags }: { initialTags: Tag[] }) {
     isPublic: false,
     description: "Write problem description here...",
     testCases: [],
-    samples: []
+    samples: [],
+    templates: []
   });
 
   // Tags State
@@ -92,7 +94,7 @@ export function CreateProblemForm({ initialTags }: { initialTags: Tag[] }) {
       
       {/* Tabs */}
       <div className="flex border-b border-slate-200 dark:border-zinc-800 overflow-x-auto">
-        {(["basic", "desc", "cases", "tags"] as const).map(tab => (
+        {(["basic", "desc", "cases", "tags", "templates"] as const).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -106,6 +108,7 @@ export function CreateProblemForm({ initialTags }: { initialTags: Tag[] }) {
             {tab === "desc" && "Description (MDX)"}
             {tab === "cases" && "I/O & Cases"}
             {tab === "tags" && "Tags"}
+            {tab === "templates" && "Code Templates"}
           </button>
         ))}
       </div>
@@ -347,6 +350,87 @@ export function CreateProblemForm({ initialTags }: { initialTags: Tag[] }) {
                   );
                 })}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Templates Tab */}
+        {activeTab === "templates" && (
+          <div className="space-y-6 max-w-4xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold dark:text-white">Language Templates</h3>
+                <p className="text-sm text-slate-500 dark:text-zinc-400">Provide starter code for different programming languages (Optional).</p>
+              </div>
+              <button 
+                onClick={() => {
+                  if (initialLanguages.length > 0) {
+                    setFormData(prev => ({
+                      ...prev,
+                      templates: [...prev.templates, { languageId: initialLanguages[0].id, boilerplate: "" }]
+                    }));
+                  } else {
+                    toast.error("No languages available in the database.");
+                  }
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-400 rounded-lg transition-colors"
+              >
+                <Plus className="w-4 h-4" /> Add Template
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              {formData.templates.map((template, i) => (
+                <div key={i} className="p-4 border border-slate-200 dark:border-zinc-800 rounded-xl bg-slate-50 dark:bg-zinc-900/50">
+                  <div className="flex justify-between items-center mb-4">
+                    <div className="flex items-center gap-3">
+                      <Code2 className="w-5 h-5 text-slate-400" />
+                      <select 
+                        value={template.languageId}
+                        onChange={e => {
+                          const newTemplates = [...formData.templates];
+                          newTemplates[i].languageId = e.target.value;
+                          setFormData(prev => ({ ...prev, templates: newTemplates }));
+                        }}
+                        className="px-3 py-1.5 border border-slate-300 rounded-lg dark:bg-zinc-800 dark:border-zinc-700 dark:text-white font-medium text-sm"
+                      >
+                        {initialLanguages.map(lang => (
+                          <option key={lang.id} value={lang.id}>{lang.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <button 
+                      onClick={() => setFormData(prev => ({ ...prev, templates: prev.templates.filter((_, idx) => idx !== i) }))} 
+                      className="text-red-500 hover:text-red-600 p-1.5 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
+                      title="Remove Template"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                  
+                  <div>
+                    <label className="text-xs font-medium text-slate-500 dark:text-zinc-400 mb-1.5 block">Boilerplate Code</label>
+                    <textarea 
+                      value={template.boilerplate} 
+                      onChange={e => {
+                        const newTemplates = [...formData.templates];
+                        newTemplates[i].boilerplate = e.target.value;
+                        setFormData(prev => ({ ...prev, templates: newTemplates }));
+                      }} 
+                      placeholder="// Write starter code here..."
+                      className="w-full p-4 border border-slate-300 rounded-lg dark:bg-zinc-950 dark:border-zinc-700 dark:text-zinc-300 font-mono text-sm min-h-[200px]" 
+                      spellCheck={false}
+                    />
+                  </div>
+                </div>
+              ))}
+              {formData.templates.length === 0 && (
+                <div className="p-8 text-center border border-dashed border-slate-300 dark:border-zinc-700 rounded-xl">
+                  <Code2 className="w-8 h-8 text-slate-300 dark:text-zinc-600 mx-auto mb-2" />
+                  <p className="text-sm text-slate-500 dark:text-zinc-400">No language templates added.</p>
+                  <p className="text-xs text-slate-400 dark:text-zinc-500 mt-1">Users will start with a blank editor for all languages.</p>
+                </div>
+              )}
             </div>
           </div>
         )}

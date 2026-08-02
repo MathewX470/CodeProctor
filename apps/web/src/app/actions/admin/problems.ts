@@ -38,6 +38,20 @@ export async function getAdminProblemsServer() {
   }));
 }
 
+export async function getLanguagesServer() {
+  const { isSuperAdmin, permissions } = await getSessionWithRoles();
+  
+  if (!isSuperAdmin && !permissions.includes("RBAC_PROBLEMS")) {
+    throw new Error("Unauthorized");
+  }
+
+  const languages = await prisma.language.findMany({
+    where: { isActive: true },
+    orderBy: { name: 'asc' }
+  });
+
+  return languages.map(l => ({ id: l.id, name: l.name, slug: l.slug }));
+}
 export type CreateProblemInput = {
   title: string;
   slug: string;
@@ -49,6 +63,7 @@ export type CreateProblemInput = {
   tagIds: string[];
   testCases: { input: string; expectedOutput: string; isHidden: boolean; weight: number }[];
   samples: { input: string; expectedOutput: string; explanation: string; order: number }[];
+  templates: { languageId: string; boilerplate: string }[];
 };
 
 export async function createProblemServer(data: CreateProblemInput) {
@@ -111,6 +126,17 @@ export async function createProblemServer(data: CreateProblemInput) {
           expectedOutput: sample.expectedOutput,
           explanation: sample.explanation,
           order: sample.order
+        }))
+      });
+    }
+
+    // 5. Create Language Templates
+    if (data.templates && data.templates.length > 0) {
+      await tx.languageTemplate.createMany({
+        data: data.templates.map(t => ({
+          problemId: problem.id,
+          languageId: t.languageId,
+          boilerplate: t.boilerplate
         }))
       });
     }
