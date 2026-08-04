@@ -25,6 +25,7 @@ type ProblemData = {
   tags: string[];
   samples: any[];
   templates: any[];
+  allLanguages: { id: string, name: string, slug: string }[];
 };
 
 export function ProblemIDE({ problem }: { problem: ProblemData }) {
@@ -32,7 +33,7 @@ export function ProblemIDE({ problem }: { problem: ProblemData }) {
   
   // State
   const [selectedLang, setSelectedLang] = useState<string>(
-    problem.templates.length > 0 ? problem.templates[0].languageId : ""
+    problem.templates.length > 0 ? problem.templates[0].languageId : (problem.allLanguages[0]?.id || "")
   );
   
   const [codeMap, setCodeMap] = useState<Record<string, string>>(() => {
@@ -46,9 +47,11 @@ export function ProblemIDE({ problem }: { problem: ProblemData }) {
   const [isRunning, setIsRunning] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [outputTab, setOutputTab] = useState<"testcases" | "result">("testcases");
+  const [submissionResult, setSubmissionResult] = useState<any>(null);
 
   // Get current template for UI
   const currentTemplate = problem.templates.find(t => t.languageId === selectedLang);
+  const currentLangObj = problem.allLanguages.find(l => l.id === selectedLang);
   const currentCode = selectedLang ? (codeMap[selectedLang] || "") : "";
 
   const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -62,33 +65,64 @@ export function ProblemIDE({ problem }: { problem: ProblemData }) {
     }
   };
 
-  const handleRun = async () => {
-    setIsRunning(true);
+  const executeCode = async (actionType: "RUN" | "SUBMIT") => {
+    if (actionType === "RUN") setIsRunning(true);
+    else setIsSubmitting(true);
+    
     setOutputTab("result");
+    setSubmissionResult({ status: "QUEUED" });
+
     try {
-      // Mock run process
-      await new Promise(r => setTimeout(r, 1500));
-      toast.success("Run finished! (Mock)");
+      // 1. Submit Code
+      const res = await fetch("/api/submissions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          problemId: problem.id,
+          languageId: selectedLang,
+          sourceCode: currentCode,
+          actionType
+        }),
+      });
+
+      if (!res.ok) throw new Error("Failed to submit code");
+      const { submissionId } = await res.json();
+
+      // 2. Poll for Results
+      const poll = setInterval(async () => {
+        try {
+          const pollRes = await fetch(`/api/submissions/${submissionId}`);
+          if (!pollRes.ok) return;
+          
+          const data = await pollRes.json();
+          setSubmissionResult(data);
+
+          if (data.status === "COMPLETED" || data.status === "FINISHED") {
+            clearInterval(poll);
+            if (actionType === "RUN") setIsRunning(false);
+            else setIsSubmitting(false);
+            
+            if (data.verdict === "ACCEPTED") {
+              toast.success("Execution Successful!");
+            } else {
+              toast.error(`Execution Failed: ${data.verdict}`);
+            }
+          }
+        } catch (e) {
+          console.error("Polling error", e);
+        }
+      }, 1000);
+
     } catch (e) {
-      toast.error("Execution failed.");
-    } finally {
-      setIsRunning(false);
+      toast.error("Network error submitting code.");
+      if (actionType === "RUN") setIsRunning(false);
+      else setIsSubmitting(false);
+      setSubmissionResult(null);
     }
   };
 
-  const handleSubmit = async () => {
-    setIsSubmitting(true);
-    setOutputTab("result");
-    try {
-      // Mock submit process
-      await new Promise(r => setTimeout(r, 2000));
-      toast.success("Submission Accepted! (Mock)");
-    } catch (e) {
-      toast.error("Submission failed.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  const handleRun = () => executeCode("RUN");
+  const handleSubmit = () => executeCode("SUBMIT");
 
   // Convert language slug to monaco language identifier
   const getMonacoLanguage = (slug: string) => {
@@ -123,15 +157,15 @@ export function ProblemIDE({ problem }: { problem: ProblemData }) {
         </div>
         
         <div className="flex items-center gap-3">
-          {problem.templates.length > 0 && (
+          {problem.allLanguages.length > 0 && (
             <div className="relative">
               <select 
                 value={selectedLang} 
                 onChange={handleLanguageChange}
                 className="appearance-none bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-800 dark:text-zinc-200 text-sm font-medium py-1.5 pl-3 pr-8 rounded-lg outline-none focus:ring-2 focus:ring-blue-500/50"
               >
-                {problem.templates.map(t => (
-                  <option key={t.languageId} value={t.languageId}>{t.languageName}</option>
+                {problem.allLanguages.map(l => (
+                  <option key={l.id} value={l.id}>{l.name}</option>
                 ))}
               </select>
               <ChevronDown className="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 dark:text-zinc-500" />
@@ -257,7 +291,7 @@ export function ProblemIDE({ problem }: { problem: ProblemData }) {
                   ) : (
                     <Editor
                       height="100%"
-                      language={getMonacoLanguage(currentTemplate?.slug || "")}
+                      language={getMonacoLanguage(currentLangObj?.slug || "")}
                       theme={resolvedTheme === "dark" ? "vs-dark" : "light"}
                       value={currentCode}
                       onChange={handleCodeChange}
@@ -346,14 +380,50 @@ export function ProblemIDE({ problem }: { problem: ProblemData }) {
                     )}
 
                     {outputTab === "result" && (
-                      <div className="h-full flex flex-col justify-center items-center text-center p-6 text-slate-500 dark:text-zinc-500">
-                        {isRunning || isSubmitting ? (
-                           <div className="flex flex-col items-center gap-3">
+                      <div className="h-full flex flex-col p-2 text-slate-700 dark:text-zinc-300">
+                        {isRunning || isSubmitting || (submissionResult && submissionResult.status !== "COMPLETED" && submissionResult.status !== "FINISHED") ? (
+                           <div className="flex h-full flex-col justify-center items-center gap-3">
                              <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-                             <span className="text-sm font-medium animate-pulse">Running Code...</span>
+                             <span className="text-sm font-medium animate-pulse">
+                               {submissionResult?.status || "Connecting..."}
+                             </span>
                            </div>
+                        ) : submissionResult ? (
+                          <div className="space-y-4">
+                            <div className="flex items-center gap-2 mb-4">
+                              <span className={`px-3 py-1 rounded text-xs font-bold uppercase tracking-wider ${
+                                submissionResult.verdict === "ACCEPTED" 
+                                  ? "bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400"
+                                  : "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400"
+                              }`}>
+                                {submissionResult.verdict}
+                              </span>
+                              <span className="text-xs text-slate-500">
+                                {submissionResult.executionTime}ms • {submissionResult.memoryUsed}KB
+                              </span>
+                            </div>
+                            
+                            {submissionResult.testCases && submissionResult.testCases.map((tc: any, idx: number) => (
+                              <div key={tc.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded p-3 text-xs font-mono mb-2">
+                                <div className="font-semibold mb-2 flex items-center gap-2">
+                                  {tc.verdict === "ACCEPTED" ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <XCircle className="w-4 h-4 text-red-500" />}
+                                  Test Case {idx + 1} {tc.isHidden ? "(Hidden)" : ""}
+                                </div>
+                                {!tc.isHidden && (
+                                  <>
+                                    <div className="text-slate-500 mt-2">Input:</div>
+                                    <div className="text-slate-800 dark:text-zinc-300">{tc.input}</div>
+                                    <div className="text-slate-500 mt-2">Expected:</div>
+                                    <div className="text-slate-800 dark:text-zinc-300">{tc.expectedOutput}</div>
+                                    <div className="text-slate-500 mt-2">Actual:</div>
+                                    <div className="text-slate-800 dark:text-zinc-300">{tc.actualOutput}</div>
+                                  </>
+                                )}
+                              </div>
+                            ))}
+                          </div>
                         ) : (
-                          <div className="flex flex-col items-center gap-2">
+                          <div className="flex h-full flex-col justify-center items-center gap-2 text-center text-slate-500">
                             <Terminal className="w-8 h-8 text-slate-300 dark:text-zinc-700" />
                             <span className="text-sm">Run or submit code to see execution results here.</span>
                           </div>
