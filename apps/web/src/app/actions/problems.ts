@@ -31,6 +31,9 @@ export async function getPublicProblemBySlugServer(slug: string) {
     throw new Error("Problem not found");
   }
 
+  // Fetch all supported languages so users can select any language even if no template exists
+  const allLanguages = await prisma.language.findMany();
+
   // Format the data for the public IDE
   // NOTICE: We specifically DO NOT fetch `testCases` here to prevent cheating.
   return {
@@ -50,6 +53,11 @@ export async function getPublicProblemBySlugServer(slug: string) {
       languageName: lt.language.name,
       slug: lt.language.slug,
       boilerplate: lt.boilerplate
+    })),
+    allLanguages: allLanguages.map(l => ({
+      id: l.id,
+      name: l.name,
+      slug: l.slug
     }))
   };
 }

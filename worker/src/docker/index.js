@@ -1,5 +1,7 @@
 import { exec, spawn } from 'child_process';
 import { promisify } from 'util';
+import fs from 'fs/promises';
+import path from 'path';
 
 const execAsync = promisify(exec);
 
@@ -47,14 +49,19 @@ export async function startExecutionContainer(image, tempDirPath, containerName)
 /**
  * Runs a specific test case against the running container using docker exec.
  */
-export async function runTestCase(containerName, runCommand, input, timeLimitMs = 2000) {
+export async function runTestCase(containerName, tempDirPath, runCommand, input, timeLimitMs = 2000) {
   return new Promise((resolve) => {
     const startTime = Date.now();
     let stdoutData = '';
     let stderrData = '';
     
+    // We use /usr/bin/time (busybox time) to write exact execution stats to a file inside the container's /workspace (which maps to tempDirPath).
+    // The -v flag gives us verbose output, and -o outputs it to the file so it doesn't pollute stderr.
+    // We wrap runCommand so that if it fails, the exit code is preserved.
+    const wrappedCommand = `time -v -o /workspace/time.txt sh -c '${runCommand.replace(/'/g, "'\\''")}'; exit_code=$?; exit $exit_code`;
+    
     // docker exec -i runs the command interactively so we can pipe stdin
-    const child = spawn('docker', ['exec', '-i', containerName, 'sh', '-c', runCommand]);
+    const child = spawn('docker', ['exec', '-i', containerName, 'sh', '-c', wrappedCommand]);
     
     // Setup timeout kill
     const timeoutId = setTimeout(() => {
@@ -82,9 +89,40 @@ export async function runTestCase(containerName, runCommand, input, timeLimitMs 
       stderrData += data.toString();
     });
     
-    child.on('close', (code) => {
+    child.on('close', async (code) => {
       clearTimeout(timeoutId);
-      const executionTime = Date.now() - startTime;
+      const infrastructureTime = Date.now() - startTime;
+      
+      let executionTime = infrastructureTime;
+      let memoryUsed = 0;
+      
+      // Attempt to read the time.txt file written by `time -v`
+      try {
+        const timeFile = path.join(tempDirPath, 'time.txt');
+        const timeOutput = await fs.readFile(timeFile, 'utf8');
+        
+        // Parse "Elapsed (wall clock) time (h:mm:ss or m:ss): 0m 0.02s"
+        const timeMatch = timeOutput.match(/Elapsed \(wall clock\) time \(h:mm:ss or m:ss\): (?:(\d+)h )?(?:(\d+)m )?([0-9.]+)s/);
+        // Parse "Maximum resident set size (kbytes): 3072"
+        const memMatch = timeOutput.match(/Maximum resident set size \(kbytes\): (\d+)/);
+        
+        if (timeMatch) {
+          const h = parseInt(timeMatch[1] || '0');
+          const m = parseInt(timeMatch[2] || '0');
+          const s = parseFloat(timeMatch[3] || '0');
+          executionTime = Math.round((h * 3600 + m * 60 + s) * 1000);
+          
+          // If the timer is 0ms, give a realistic minimum of 1ms
+          if (executionTime === 0) executionTime = 1;
+        }
+        
+        if (memMatch) {
+          memoryUsed = parseInt(memMatch[1]);
+        }
+      } catch (err) {
+        // Fallback to infrastructure time if parsing fails
+        console.error("Failed to parse time:", err.message);
+      }
       
       // If code is null, it was killed by our timeout
       if (code === null) {
@@ -98,6 +136,7 @@ export async function runTestCase(containerName, runCommand, input, timeLimitMs 
             success: false,
             errorType: 'MEMORY_LIMIT_EXCEEDED',
             executionTime,
+            memoryUsed,
             stdout: stdoutData.trim(),
             stderr: stderrData.trim(),
             exitCode: code
@@ -110,6 +149,7 @@ export async function runTestCase(containerName, runCommand, input, timeLimitMs 
           success: false,
           errorType: 'RUNTIME_ERROR',
           executionTime,
+          memoryUsed,
           stdout: stdoutData.trim(),
           stderr: stderrData.trim(),
           exitCode: code
@@ -120,6 +160,7 @@ export async function runTestCase(containerName, runCommand, input, timeLimitMs 
       resolve({
         success: true,
         executionTime,
+        memoryUsed,
         stdout: stdoutData.trim(),
         stderr: stderrData.trim(),
         exitCode: code

@@ -63,18 +63,22 @@ export async function executeSubmission(jobData) {
     
     let aggregateVerdict = 'ACCEPTED';
     let maxExecutionTime = 0;
+    let maxMemory = 0;
     
     // 4. Run Test Cases Loop
     for (const testCase of testCases) {
       const tcResult = await runTestCase(
         containerName, 
+        tmpDir,
         langConfig.runCommand, 
         testCase.input, 
         submission.problem.timeLimit
       );
       
       const tcExecutionTime = tcResult.executionTime || 0;
+      const tcMemory = tcResult.memoryUsed || 0;
       maxExecutionTime = Math.max(maxExecutionTime, tcExecutionTime);
+      maxMemory = Math.max(maxMemory, tcMemory);
       
       let tcVerdict = 'ACCEPTED';
       
@@ -101,13 +105,13 @@ export async function executeSubmission(jobData) {
            testCaseId: testCase.id,
            verdict: tcVerdict,
            executionTime: tcExecutionTime,
-           memoryUsed: 0, // Mocked for now, needs cgroup stat extraction
+           memoryUsed: tcMemory,
            actualOutput: tcResult.stdout.substring(0, 500) // Truncate large outputs
          },
          update: {
            verdict: tcVerdict,
            executionTime: tcExecutionTime,
-           memoryUsed: 0,
+           memoryUsed: tcMemory,
            actualOutput: tcResult.stdout.substring(0, 500)
          }
       });
@@ -120,7 +124,7 @@ export async function executeSubmission(jobData) {
     }
     
     // 5. Finalize Submission Verdict
-    await updateSubmissionVerdict(submissionId, aggregateVerdict, maxExecutionTime, 0);
+    await updateSubmissionVerdict(submissionId, aggregateVerdict, maxExecutionTime, maxMemory);
     return { verdict: aggregateVerdict };
 
   } catch (error) {

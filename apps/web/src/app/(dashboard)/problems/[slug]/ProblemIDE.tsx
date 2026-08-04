@@ -25,6 +25,7 @@ type ProblemData = {
   tags: string[];
   samples: any[];
   templates: any[];
+  allLanguages: { id: string, name: string, slug: string }[];
 };
 
 export function ProblemIDE({ problem }: { problem: ProblemData }) {
@@ -32,7 +33,7 @@ export function ProblemIDE({ problem }: { problem: ProblemData }) {
   
   // State
   const [selectedLang, setSelectedLang] = useState<string>(
-    problem.templates.length > 0 ? problem.templates[0].languageId : ""
+    problem.templates.length > 0 ? problem.templates[0].languageId : (problem.allLanguages[0]?.id || "")
   );
   
   const [codeMap, setCodeMap] = useState<Record<string, string>>(() => {
@@ -50,6 +51,7 @@ export function ProblemIDE({ problem }: { problem: ProblemData }) {
 
   // Get current template for UI
   const currentTemplate = problem.templates.find(t => t.languageId === selectedLang);
+  const currentLangObj = problem.allLanguages.find(l => l.id === selectedLang);
   const currentCode = selectedLang ? (codeMap[selectedLang] || "") : "";
 
   const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -155,15 +157,15 @@ export function ProblemIDE({ problem }: { problem: ProblemData }) {
         </div>
         
         <div className="flex items-center gap-3">
-          {problem.templates.length > 0 && (
+          {problem.allLanguages.length > 0 && (
             <div className="relative">
               <select 
                 value={selectedLang} 
                 onChange={handleLanguageChange}
                 className="appearance-none bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-800 dark:text-zinc-200 text-sm font-medium py-1.5 pl-3 pr-8 rounded-lg outline-none focus:ring-2 focus:ring-blue-500/50"
               >
-                {problem.templates.map(t => (
-                  <option key={t.languageId} value={t.languageId}>{t.languageName}</option>
+                {problem.allLanguages.map(l => (
+                  <option key={l.id} value={l.id}>{l.name}</option>
                 ))}
               </select>
               <ChevronDown className="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 dark:text-zinc-500" />
@@ -289,7 +291,7 @@ export function ProblemIDE({ problem }: { problem: ProblemData }) {
                   ) : (
                     <Editor
                       height="100%"
-                      language={getMonacoLanguage(currentTemplate?.slug || "")}
+                      language={getMonacoLanguage(currentLangObj?.slug || "")}
                       theme={resolvedTheme === "dark" ? "vs-dark" : "light"}
                       value={currentCode}
                       onChange={handleCodeChange}
