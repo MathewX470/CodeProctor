@@ -1,0 +1,19 @@
+{
+  "name": "worker",
+  "version": "1.0.0",
+  "description": "Code execution worker for CodeProctor",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "bullmq": "^5.0.0",
+    "ioredis": "^5.0.0",
+    "dotenv": "^16.0.0",
+    "@prisma/client": "^7.8.0",
+    "@prisma/adapter-neon": "^7.8.0",
+    "@neondatabase/serverless": "^1.1.0"
+  }
+}
