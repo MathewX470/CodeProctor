@@ -5,26 +5,31 @@ export const languageConfig = {
   c: {
     image: 'runner-c:latest',
     fileName: 'main.c',
-    getRunCommand: () => `gcc -O2 main.c -o main && ./main`,
+    compileCommand: 'gcc -O2 main.c -o main',
+    runCommand: './main',
   },
   cpp: {
     image: 'runner-cpp:latest',
     fileName: 'main.cpp',
-    getRunCommand: () => `g++ -O2 main.cpp -o main && ./main`,
+    compileCommand: 'g++ -O2 main.cpp -o main',
+    runCommand: './main',
   },
   java: {
     image: 'runner-java:latest',
     fileName: 'Main.java',
-    getRunCommand: () => `javac Main.java && java Main`,
+    compileCommand: 'javac Main.java',
+    runCommand: 'java Main',
   },
-  python: {
+  python3: {
     image: 'runner-python:latest',
     fileName: 'main.py',
-    getRunCommand: () => `python3 main.py`,
+    compileCommand: null, // Interpreted
+    runCommand: 'python3 main.py',
   },
   javascript: {
     image: 'runner-node:latest',
     fileName: 'main.js',
-    getRunCommand: () => `node main.js`,
+    compileCommand: null, // Interpreted
+    runCommand: 'node main.js',
   },
 };

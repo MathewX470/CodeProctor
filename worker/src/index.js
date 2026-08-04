@@ -1,5 +1,4 @@
-import dotenv from 'dotenv';
-dotenv.config();
+import 'dotenv/config.js';
 
 import { Worker } from 'bullmq';
 import { connection } from './queue/index.js';

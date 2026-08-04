@@ -1,54 +1,152 @@
-import { exec } from 'child_process';
+import { exec, spawn } from 'child_process';
 import { promisify } from 'util';
 
 const execAsync = promisify(exec);
 
 /**
- * Runs a command inside a docker container.
- * @param {string} image - The Docker image to use.
- * @param {string} tempDirPath - Absolute path to the host directory to mount.
- * @param {string} runCommand - The command to run inside the container.
- * @param {number} timeLimit - Time limit in milliseconds.
- * @param {number} memoryLimit - Memory limit in KB.
+ * Compiles the source code inside a Docker container.
  */
-export async function runDockerContainer(image, tempDirPath, runCommand, timeLimit, memoryLimit) {
-  // We use docker run --rm to remove the container after execution.
-  // We mount the temp dir as read-write to /workspace.
-  // We set memory limit (memoryLimit is in KB, so convert to MB or bytes).
-  // Egress network is disabled.
-  
-  const memoryLimitMB = Math.max(4, Math.ceil(memoryLimit / 1024)); // Minimum 4MB for Docker
-  
-  const dockerCmd = `docker run --rm -v "${tempDirPath}:/workspace" --network none --memory="${memoryLimitMB}m" --workdir /workspace ${image} sh -c "${runCommand}"`;
+export async function compileContainer(image, tempDirPath, compileCommand, timeoutMs = 15000) {
+  if (!compileCommand) return { success: true }; // Interpreted language
+
+  // We compile inside the container. We map the workspace and run the compiler.
+  // We use memory limit for compilation (e.g. 256MB)
+  const dockerCmd = `docker run --rm -v "${tempDirPath}:/workspace" --network none --memory="256m" --workdir /workspace ${image} sh -c "${compileCommand}"`;
   
   try {
     const { stdout, stderr } = await execAsync(dockerCmd, { 
-      timeout: timeLimit,
-      killSignal: 'SIGKILL' // Kill if timeout is reached
+      timeout: timeoutMs,
+      killSignal: 'SIGKILL'
     });
     
-    return {
-      success: true,
-      stdout: stdout.trim(),
-      stderr: stderr.trim()
-    };
+    return { success: true, stdout, stderr };
   } catch (error) {
     if (error.killed) {
-      return {
-        success: false,
-        errorType: 'TIME_LIMIT_EXCEEDED',
-        stdout: error.stdout?.trim() || '',
-        stderr: error.stderr?.trim() || ''
-      };
+      return { success: false, errorType: 'COMPILATION_TIMEOUT', stderr: 'Compilation timed out.' };
     }
-    
-    // If exit code is not 0
     return {
       success: false,
-      errorType: 'RUNTIME_ERROR', // Could also be compilation error if runCommand includes compilation
-      exitCode: error.code,
-      stdout: error.stdout?.trim() || '',
-      stderr: error.stderr?.trim() || error.message
+      errorType: 'COMPILATION_ERROR',
+      stderr: error.stderr || error.message
     };
+  }
+}
+
+/**
+ * Starts a background execution container.
+ * Uses security flags to lock down the container.
+ */
+export async function startExecutionContainer(image, tempDirPath, containerName) {
+  // Sleep infinity keeps it alive
+  // Security options included
+  const dockerCmd = `docker run -d --rm --name "${containerName}" -v "${tempDirPath}:/workspace" --network none --memory="128m" --cpus="1" --pids-limit="64" --read-only --security-opt=no-new-privileges --tmpfs /tmp --workdir /workspace ${image} sleep infinity`;
+  
+  await execAsync(dockerCmd);
+}
+
+/**
+ * Runs a specific test case against the running container using docker exec.
+ */
+export async function runTestCase(containerName, runCommand, input, timeLimitMs = 2000) {
+  return new Promise((resolve) => {
+    const startTime = Date.now();
+    let stdoutData = '';
+    let stderrData = '';
+    
+    // docker exec -i runs the command interactively so we can pipe stdin
+    const child = spawn('docker', ['exec', '-i', containerName, 'sh', '-c', runCommand]);
+    
+    // Setup timeout kill
+    const timeoutId = setTimeout(() => {
+      child.kill('SIGKILL');
+      resolve({
+        success: false,
+        errorType: 'TIME_LIMIT_EXCEEDED',
+        executionTime: timeLimitMs,
+        stdout: stdoutData.trim(),
+        stderr: stderrData.trim(),
+        exitCode: null
+      });
+    }, timeLimitMs + 500); // 500ms grace period for docker overhead
+    
+    if (input) {
+      child.stdin.write(input);
+    }
+    child.stdin.end();
+    
+    child.stdout.on('data', (data) => {
+      stdoutData += data.toString();
+    });
+    
+    child.stderr.on('data', (data) => {
+      stderrData += data.toString();
+    });
+    
+    child.on('close', (code) => {
+      clearTimeout(timeoutId);
+      const executionTime = Date.now() - startTime;
+      
+      // If code is null, it was killed by our timeout
+      if (code === null) {
+         // Covered by the setTimeout
+         return;
+      }
+      
+      if (code === 137) {
+         // OOM kill
+         resolve({
+            success: false,
+            errorType: 'MEMORY_LIMIT_EXCEEDED',
+            executionTime,
+            stdout: stdoutData.trim(),
+            stderr: stderrData.trim(),
+            exitCode: code
+         });
+         return;
+      }
+
+      if (code !== 0) {
+        resolve({
+          success: false,
+          errorType: 'RUNTIME_ERROR',
+          executionTime,
+          stdout: stdoutData.trim(),
+          stderr: stderrData.trim(),
+          exitCode: code
+        });
+        return;
+      }
+      
+      resolve({
+        success: true,
+        executionTime,
+        stdout: stdoutData.trim(),
+        stderr: stderrData.trim(),
+        exitCode: code
+      });
+    });
+    
+    child.on('error', (err) => {
+       clearTimeout(timeoutId);
+       resolve({
+          success: false,
+          errorType: 'RUNTIME_ERROR',
+          executionTime: Date.now() - startTime,
+          stdout: stdoutData.trim(),
+          stderr: err.message,
+          exitCode: -1
+       });
+    });
+  });
+}
+
+/**
+ * Kills a running container.
+ */
+export async function killContainer(containerName) {
+  try {
+    await execAsync(`docker rm -f ${containerName}`);
+  } catch (e) {
+    // Ignore error if container doesn't exist
   }
 }
