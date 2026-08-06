@@ -24,10 +24,6 @@ export function ContestManagerClient({ contest }: { contest: any }) {
 
   // Debounce search
   useEffect(() => {
-    if (!searchQuery.trim()) {
-      setSearchResults([]);
-      return;
-    }
     const timer = setTimeout(async () => {
       setIsSearching(true);
       try {

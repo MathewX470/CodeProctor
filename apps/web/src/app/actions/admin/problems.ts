@@ -5,14 +5,20 @@ import { getSessionWithRoles } from "../auth";
 import { revalidatePath } from "next/cache";
 
 export async function getAdminProblemsServer() {
-  const { isSuperAdmin, permissions } = await getSessionWithRoles();
+  const { session, isSuperAdmin, permissions } = await getSessionWithRoles();
   
-  if (!isSuperAdmin && !permissions.includes("RBAC_PROBLEMS")) {
+  if (!session?.user || (!isSuperAdmin && !permissions.includes("RBAC_PROBLEMS"))) {
     throw new Error("Unauthorized");
   }
 
   const problems = await prisma.problem.findMany({
-    where: { isDeleted: false },
+    where: { 
+      isDeleted: false,
+      OR: [
+        { isPublic: true },
+        { createdById: session.user.id }
+      ]
+    },
     include: {
       createdBy: {
         select: { name: true, email: true }
@@ -39,9 +45,9 @@ export async function getAdminProblemsServer() {
 }
 
 export async function getProblemBySlugServer(slug: string) {
-  const { isSuperAdmin, permissions } = await getSessionWithRoles();
+  const { session, isSuperAdmin, permissions } = await getSessionWithRoles();
   
-  if (!isSuperAdmin && !permissions.includes("RBAC_PROBLEMS")) {
+  if (!session?.user || (!isSuperAdmin && !permissions.includes("RBAC_PROBLEMS"))) {
     throw new Error("Unauthorized");
   }
 
@@ -56,6 +62,10 @@ export async function getProblemBySlugServer(slug: string) {
   });
 
   if (!problem) throw new Error("Problem not found");
+
+  if (!problem.isPublic && problem.createdById !== session.user.id) {
+    throw new Error("You do not have access to this private problem.");
+  }
 
   return {
     ...problem,
@@ -186,13 +196,18 @@ export async function updateProblemServer(id: string, data: UpdateProblemInput) 
   if (!problem) throw new Error("Problem not found");
 
   const hasAdminPerm = isSuperAdmin || permissions.includes("RBAC_PROBLEMS");
-  if (!hasAdminPerm) {
-    if (problem.createdById !== session.user.id) {
+  
+  if (problem.createdById !== session.user.id) {
+    if (!problem.isPublic) {
+      throw new Error("You cannot access private problems created by other users.");
+    }
+    if (!hasAdminPerm) {
       throw new Error("You can only edit problems you created.");
     }
-    if (data.isPublic) {
-      throw new Error("Standard users cannot make problems public.");
-    }
+  }
+
+  if (!hasAdminPerm && data.isPublic) {
+    throw new Error("Standard users cannot make problems public.");
   }
 
   // Check if slug exists and belongs to another problem
@@ -304,8 +319,12 @@ export async function archiveProblemServer(problemId: string) {
   if (!problem) throw new Error("Problem not found");
 
   const hasAdminPerm = isSuperAdmin || permissions.includes("RBAC_PROBLEMS");
-  if (!hasAdminPerm) {
-    if (problem.createdById !== session.user.id) {
+  
+  if (problem.createdById !== session.user.id) {
+    if (!problem.isPublic) {
+      throw new Error("You cannot access private problems created by other users.");
+    }
+    if (!hasAdminPerm) {
       throw new Error("You can only delete problems you created.");
     }
   }

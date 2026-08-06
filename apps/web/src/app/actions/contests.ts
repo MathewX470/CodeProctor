@@ -183,19 +183,14 @@ export async function searchProblemsForContest(query: string) {
   const session = await getSessionWithRoles();
   if (!session.session?.user) return [];
 
-  // Admins can see all problems. Regular users see public + their own.
-  const isAdmin = session.isSuperAdmin || session.permissions.includes("RBAC_PROBLEMS");
-
   const problems = await prisma.problem.findMany({
     where: {
       isDeleted: false,
       title: { contains: query, mode: "insensitive" },
-      ...(isAdmin ? {} : {
-        OR: [
-          { isPublic: true },
-          { createdById: session.session.user.id }
-        ]
-      })
+      OR: [
+        { isPublic: true },
+        { createdById: session.session.user.id }
+      ]
     },
     select: {
       id: true,
