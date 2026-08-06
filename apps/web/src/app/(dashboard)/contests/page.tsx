@@ -1,9 +1,10 @@
 import React from "react";
 import Link from "next/link";
 import { Plus, Users, Clock, Calendar, ShieldCheck, Lock, Globe } from "lucide-react";
-import { getUserContestsServer } from "@/app/actions/contests";
+import { getUserContestsServer, getMyInvites } from "@/app/actions/contests";
 import { getSessionWithRoles } from "@/app/actions/auth";
 import { redirect } from "next/navigation";
+import { PendingInvitesSection } from "@/components/contests/PendingInvitesSection";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,10 @@ export default async function UserContestsPage() {
     redirect("/login");
   }
 
-  const memberships = await getUserContestsServer();
+  const [memberships, myInvites] = await Promise.all([
+    getUserContestsServer(),
+    getMyInvites()
+  ]);
 
   return (
     <div className="p-6 md:p-10 max-w-7xl mx-auto space-y-8">
@@ -33,6 +37,8 @@ export default async function UserContestsPage() {
           Create Contest
         </Link>
       </div>
+
+      <PendingInvitesSection initialInvites={myInvites} />
 
       {memberships.length === 0 ? (
         <div className="border border-dashed border-slate-300 dark:border-zinc-800 rounded-2xl p-12 flex flex-col items-center justify-center text-center">

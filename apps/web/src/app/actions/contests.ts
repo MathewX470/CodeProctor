@@ -362,7 +362,7 @@ export async function getContestMembers(contestId: string) {
   }));
 }
 
-export async function addContestMember(contestId: string, email: string, role: "MODERATOR" | "PARTICIPANT") {
+export async function inviteContestMember(contestId: string, email: string, role: "MODERATOR" | "PARTICIPANT") {
   const session = await getSessionWithRoles();
   if (!session.session?.user) throw new Error("Unauthorized");
 
@@ -387,22 +387,130 @@ export async function addContestMember(contestId: string, email: string, role: "
     return { success: false, error: "No user found with that email address." };
   }
 
+  // Check if they are already in the contest
+  const existingMember = await prisma.contestMember.findUnique({
+    where: { contestId_userId: { contestId, userId: userToAdd.id } }
+  });
+  if (existingMember) {
+    return { success: false, error: "User is already in this contest." };
+  }
+
   try {
-    await prisma.contestMember.upsert({
-      where: { contestId_userId: { contestId, userId: userToAdd.id } },
+    await prisma.contestInvite.upsert({
+      where: { contestId_email: { contestId, email } },
       create: {
         contestId,
-        userId: userToAdd.id,
+        email,
         role: role,
-        invitedById: session.session.user.id
+        status: "PENDING"
       },
       update: {
         role: role,
-        invitedById: session.session.user.id
+        status: "PENDING",
+        invitedAt: new Date()
       }
     });
 
     revalidatePath(`/contests/${contestId}/manage`);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function getContestInvites(contestId: string) {
+  const session = await getSessionWithRoles();
+  if (!session.session?.user) throw new Error("Unauthorized");
+
+  const invites = await prisma.contestInvite.findMany({
+    where: { contestId, status: "PENDING" },
+    orderBy: { invitedAt: 'desc' }
+  });
+  return invites;
+}
+
+export async function cancelInvite(inviteId: string) {
+  const session = await getSessionWithRoles();
+  if (!session.session?.user) throw new Error("Unauthorized");
+
+  try {
+    const invite = await prisma.contestInvite.findUnique({ where: { id: inviteId } });
+    if (!invite) throw new Error("Invite not found");
+
+    // Check permissions
+    const membership = await prisma.contestMember.findUnique({
+      where: { contestId_userId: { contestId: invite.contestId, userId: session.session.user.id } }
+    });
+    const isAdmin = session.isSuperAdmin || session.permissions.includes("RBAC_CONTESTS");
+    
+    if (!isAdmin) {
+      if (invite.role === "MODERATOR" && membership?.role !== "OWNER") {
+        throw new Error("Forbidden");
+      }
+      if (invite.role === "PARTICIPANT" && membership?.role !== "OWNER" && membership?.role !== "MODERATOR") {
+        throw new Error("Forbidden");
+      }
+    }
+
+    await prisma.contestInvite.delete({ where: { id: inviteId } });
+    revalidatePath(`/contests/${invite.contestId}/manage`);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function getMyInvites() {
+  const session = await getSessionWithRoles();
+  if (!session.session?.user) throw new Error("Unauthorized");
+
+  const invites = await prisma.contestInvite.findMany({
+    where: { email: session.session.user.email, status: "PENDING" },
+    include: {
+      contest: {
+        select: { title: true, startTime: true, endTime: true, duration: true }
+      }
+    },
+    orderBy: { invitedAt: 'desc' }
+  });
+
+  return invites;
+}
+
+export async function respondToInvite(inviteId: string, accept: boolean) {
+  const session = await getSessionWithRoles();
+  if (!session.session?.user) throw new Error("Unauthorized");
+
+  try {
+    const invite = await prisma.contestInvite.findUnique({ where: { id: inviteId } });
+    if (!invite) throw new Error("Invite not found");
+    if (invite.email !== session.session.user.email) throw new Error("Unauthorized");
+    if (invite.status !== "PENDING") throw new Error("Invite is no longer valid");
+
+    if (!accept) {
+      await prisma.contestInvite.update({
+        where: { id: inviteId },
+        data: { status: "DECLINED", respondedAt: new Date() }
+      });
+      revalidatePath(`/contests`);
+      return { success: true };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.contestInvite.update({
+        where: { id: inviteId },
+        data: { status: "ACCEPTED", respondedAt: new Date() }
+      });
+      await tx.contestMember.create({
+        data: {
+          contestId: invite.contestId,
+          userId: session.session.user.id,
+          role: invite.role
+        }
+      });
+    });
+
+    revalidatePath(`/contests`);
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message };

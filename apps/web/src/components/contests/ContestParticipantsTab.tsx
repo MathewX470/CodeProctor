@@ -2,13 +2,14 @@
 
 import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { getContestMembers, addContestMember, removeMember } from "@/app/actions/contests";
-import { UserPlus, Shield, User, Trash2, Ban } from "lucide-react";
+import { getContestMembers, inviteContestMember, removeMember, getContestInvites, cancelInvite } from "@/app/actions/contests";
+import { UserPlus, Shield, User, Trash2, Ban, Mail, Clock } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-export function ContestParticipantsTab({ contest }: { contest: any }) {
+export function ContestParticipantsTab({ contest, isAdmin }: { contest: any, isAdmin?: boolean }) {
   const router = useRouter();
   const [members, setMembers] = useState<any[]>([]);
+  const [invites, setInvites] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
   const [inviteEmail, setInviteEmail] = useState("");
@@ -18,15 +19,19 @@ export function ContestParticipantsTab({ contest }: { contest: any }) {
   const [isInvitingParticipant, setIsInvitingParticipant] = useState(false);
 
   useEffect(() => {
-    loadMembers();
+    loadMembersAndInvites();
   }, [contest.id]);
 
-  const loadMembers = async () => {
+  const loadMembersAndInvites = async () => {
     try {
-      const data = await getContestMembers(contest.id);
-      setMembers(data);
+      const [membersData, invitesData] = await Promise.all([
+        getContestMembers(contest.id),
+        getContestInvites(contest.id)
+      ]);
+      setMembers(membersData);
+      setInvites(invitesData);
     } catch (err: any) {
-      toast.error("Failed to load participants");
+      toast.error("Failed to load participants and invites");
     } finally {
       setIsLoading(false);
     }
@@ -41,15 +46,15 @@ export function ContestParticipantsTab({ contest }: { contest: any }) {
     else setIsInvitingParticipant(true);
 
     try {
-      const res = await addContestMember(contest.id, email, role);
+      const res = await inviteContestMember(contest.id, email, role);
       if (res.success) {
-        toast.success(`${role === "MODERATOR" ? "Moderator" : "Participant"} added successfully`);
+        toast.success(`Invitation sent to ${role.toLowerCase()}`);
         if (role === "MODERATOR") setInviteEmail("");
         else setParticipantEmail("");
-        loadMembers();
+        loadMembersAndInvites();
         router.refresh();
       } else {
-        toast.error(res.error || `Failed to add ${role.toLowerCase()}`);
+        toast.error(res.error || `Failed to invite ${role.toLowerCase()}`);
       }
     } catch (err: any) {
       toast.error(err.message || "An error occurred");
@@ -66,9 +71,24 @@ export function ContestParticipantsTab({ contest }: { contest: any }) {
       const res = await removeMember(contest.id, memberId);
       if (res.success) {
         toast.success("Removed successfully");
-        loadMembers();
+        loadMembersAndInvites();
       } else {
         toast.error(res.error || "Failed to remove");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "An error occurred");
+    }
+  };
+
+  const handleCancelInvite = async (inviteId: string) => {
+    if (!window.confirm("Are you sure you want to cancel this invitation?")) return;
+    try {
+      const res = await cancelInvite(inviteId);
+      if (res.success) {
+        toast.success("Invitation canceled");
+        loadMembersAndInvites();
+      } else {
+        toast.error(res.error || "Failed to cancel invitation");
       }
     } catch (err: any) {
       toast.error(err.message || "An error occurred");
@@ -229,6 +249,59 @@ export function ContestParticipantsTab({ contest }: { contest: any }) {
           </div>
         )}
       </div>
+      {/* Pending Invitations */}
+      {invites.length > 0 && (
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm">
+          <div className="p-6 border-b border-slate-200 dark:border-zinc-800">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Mail className="w-5 h-5 text-amber-500" />
+              Pending Invitations ({invites.length})
+            </h3>
+            <p className="text-sm text-slate-500 dark:text-zinc-400 mt-1">
+              Users who have been invited but have not yet responded.
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm whitespace-nowrap">
+              <thead className="bg-slate-50 dark:bg-zinc-900/50 text-slate-500 dark:text-zinc-400 border-b border-slate-200 dark:border-zinc-800">
+                <tr>
+                  <th className="px-6 py-3 font-medium">Email</th>
+                  <th className="px-6 py-3 font-medium">Role</th>
+                  <th className="px-6 py-3 font-medium">Invited At</th>
+                  <th className="px-6 py-3 font-medium text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/50">
+                {invites.map(invite => (
+                  <tr key={invite.id} className="hover:bg-slate-50 dark:hover:bg-zinc-900/50 transition-colors">
+                    <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">
+                      {invite.email}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium ${invite.role === 'MODERATOR' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-400'}`}>
+                        {invite.role}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-slate-600 dark:text-zinc-300 flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-slate-400" />
+                      {new Date(invite.invitedAt).toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <button 
+                        onClick={() => handleCancelInvite(invite.id)}
+                        className="text-red-500 hover:text-red-600 p-2 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
+                        title="Cancel Invitation"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
