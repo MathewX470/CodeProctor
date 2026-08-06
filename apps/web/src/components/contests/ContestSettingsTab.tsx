@@ -16,7 +16,6 @@ export function ContestSettingsTab({ contest, isAdmin }: { contest: any, isAdmin
     endTime: new Date(contest.endTime).toISOString().slice(0, 16),
     duration: contest.duration,
     isPublic: contest.settings?.isPublic ?? true,
-    password: contest.settings?.password || "",
     proctoringMode: contest.settings?.proctoringMode || "NORMAL",
     requireCamera: contest.settings?.requireCamera ?? false,
     requireFullScreen: contest.settings?.requireFullScreen ?? false,
@@ -127,15 +126,9 @@ export function ContestSettingsTab({ contest, isAdmin }: { contest: any, isAdmin
           )}
 
           {!formData.isPublic && (
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-zinc-300 mb-1">Contest Password (Optional)</label>
-              <input 
-                type="text" 
-                value={formData.password}
-                onChange={e => setFormData({ ...formData, password: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 dark:bg-zinc-800 dark:border-zinc-700 dark:text-white"
-                placeholder="Leave blank to only allow invited members"
-              />
+            <div className="text-sm text-slate-500 dark:text-zinc-400 p-4 bg-slate-50 dark:bg-zinc-900/50 rounded-lg border border-slate-100 dark:border-zinc-800">
+              <span className="font-medium text-slate-700 dark:text-zinc-300">Note: </span>
+              This contest is private. Participants must either use the Join Code or be invited manually.
             </div>
           )}
         </div>

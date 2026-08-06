@@ -224,6 +224,7 @@ model Contest {
   startTime   DateTime
   endTime     DateTime
   duration    Int // minutes
+  joinCode    String?  @unique
   isDeleted   Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -247,7 +248,6 @@ model ContestSettings {
   requireFullScreen Boolean        @default(false)
   detectTabSwitch   Boolean        @default(false)
   detectCopyPaste   Boolean        @default(false)
-  password          String?
   allowLateJoin     Boolean        @default(false)
   isPublic          Boolean        @default(true)
 

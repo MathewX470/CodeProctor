@@ -13,13 +13,16 @@ export type CreateContestInput = {
   duration: number; // minutes
   isPublic: boolean;
   proctoringMode: ProctoringMode;
-  password?: string;
 };
 
 export async function createContestServer(data: CreateContestInput) {
   const session = await getSessionWithRoles();
   if (!session.session?.user) {
     throw new Error("Unauthorized");
+  }
+
+  if (data.endTime <= data.startTime) {
+    throw new Error("End time must be after start time.");
   }
 
   // Enforcement: Standard users cannot create public contests
@@ -39,6 +42,7 @@ export async function createContestServer(data: CreateContestInput) {
           startTime: data.startTime,
           endTime: data.endTime,
           duration: data.duration,
+          joinCode: `CP-${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
           isDeleted: false,
         },
       });
@@ -49,8 +53,6 @@ export async function createContestServer(data: CreateContestInput) {
           contestId: newContest.id,
           proctoringMode: data.proctoringMode,
           isPublic: data.isPublic,
-          password: data.password || null,
-          allowLateJoin: true, // Configurable later if needed
         },
       });
 
@@ -292,6 +294,10 @@ export async function updateContestSettings(contestId: string, data: any) {
     throw new Error("Forbidden: Standard users cannot create public contests.");
   }
 
+  if (new Date(data.endTime) <= new Date(data.startTime)) {
+    throw new Error("End time must be after start time.");
+  }
+
   try {
     await prisma.$transaction(async (tx) => {
       await tx.contest.update({
@@ -314,7 +320,6 @@ export async function updateContestSettings(contestId: string, data: any) {
           requireFullScreen: data.requireFullScreen,
           detectTabSwitch: data.detectTabSwitch,
           detectCopyPaste: data.detectCopyPaste,
-          password: data.password || null,
           isPublic: data.isPublic,
         },
         update: {
@@ -323,7 +328,6 @@ export async function updateContestSettings(contestId: string, data: any) {
           requireFullScreen: data.requireFullScreen,
           detectTabSwitch: data.detectTabSwitch,
           detectCopyPaste: data.detectCopyPaste,
-          password: data.password || null,
           isPublic: data.isPublic,
         }
       });
@@ -512,6 +516,44 @@ export async function respondToInvite(inviteId: string, accept: boolean) {
 
     revalidatePath(`/contests`);
     return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function joinContestByCode(joinCode: string) {
+  const session = await getSessionWithRoles();
+  if (!session.session?.user) throw new Error("Unauthorized");
+
+  try {
+    const contest = await prisma.contest.findUnique({
+      where: { joinCode: joinCode.trim() },
+      include: { settings: true }
+    });
+
+    if (!contest) {
+      return { success: false, error: "Invalid Join Code. Contest not found." };
+    }
+
+    // Check if already a member
+    const existingMember = await prisma.contestMember.findUnique({
+      where: { contestId_userId: { contestId: contest.id, userId: session.session.user.id } }
+    });
+    if (existingMember) {
+      return { success: false, error: "You are already a member of this contest." };
+    }
+
+    // Add user as PARTICIPANT
+    await prisma.contestMember.create({
+      data: {
+        contestId: contest.id,
+        userId: session.session.user.id,
+        role: "PARTICIPANT"
+      }
+    });
+
+    revalidatePath("/contests");
+    return { success: true, contestId: contest.id };
   } catch (err: any) {
     return { success: false, error: err.message };
   }

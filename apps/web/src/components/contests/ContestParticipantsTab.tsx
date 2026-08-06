@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { getContestMembers, inviteContestMember, removeMember, getContestInvites, cancelInvite } from "@/app/actions/contests";
-import { UserPlus, Shield, User, Trash2, Ban, Mail, Clock } from "lucide-react";
+import { UserPlus, Shield, User, Trash2, Ban, Mail, Clock, Copy, Key } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 export function ContestParticipantsTab({ contest, isAdmin }: { contest: any, isAdmin?: boolean }) {
@@ -98,12 +98,47 @@ export function ContestParticipantsTab({ contest, isAdmin }: { contest: any, isA
   const moderators = members.filter(m => m.role === "MODERATOR" || m.role === "OWNER");
   const participants = members.filter(m => m.role === "PARTICIPANT");
 
+  const handleCopyJoinCode = () => {
+    if (contest.joinCode) {
+      navigator.clipboard.writeText(contest.joinCode);
+      toast.success("Join code copied to clipboard!");
+    }
+  };
+
   if (isLoading) {
     return <div className="text-sm text-slate-500">Loading participants...</div>;
   }
 
   return (
     <div className="space-y-8 max-w-5xl pb-10">
+      
+      {/* Join Code Banner */}
+      {!contest.settings?.isPublic && contest.joinCode && (
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-6 shadow-sm text-white flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-bold flex items-center gap-2 mb-1">
+              <Key className="w-5 h-5 opacity-80" />
+              Private Contest Join Code
+            </h3>
+            <p className="text-blue-100 text-sm">
+              Share this code with students so they can search and join this contest instantly.
+            </p>
+          </div>
+          <div className="flex items-center gap-3 bg-white/10 p-3 rounded-lg border border-white/20 backdrop-blur-sm">
+            <div className="font-mono text-2xl font-bold tracking-wider">
+              {contest.joinCode}
+            </div>
+            <button 
+              onClick={handleCopyJoinCode}
+              className="p-2 bg-white/20 hover:bg-white/30 rounded-md transition-colors"
+              title="Copy Code"
+            >
+              <Copy className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Management Team */}
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm">
         <div className="p-6 border-b border-slate-200 dark:border-zinc-800 flex justify-between items-start md:items-center flex-col md:flex-row gap-4">

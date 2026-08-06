@@ -21,9 +21,22 @@ export function ContestForm({ isAdmin, redirectPath }: ContestFormProps) {
   const [description, setDescription] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
+  const [minDateTime, setMinDateTime] = useState("");
   const [duration, setDuration] = useState("120"); // 120 mins default
+
+  React.useEffect(() => {
+    const now = new Date();
+    const formattedNow = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    setMinDateTime(formattedNow);
+    
+    if (!startTime) setStartTime(formattedNow);
+    
+    if (!endTime) {
+      const later = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+      setEndTime(new Date(later.getTime() - later.getTimezoneOffset() * 60000).toISOString().slice(0, 16));
+    }
+  }, []);
   const [isPublic, setIsPublic] = useState(false);
-  const [password, setPassword] = useState("");
   const [proctoringMode, setProctoringMode] = useState<ProctoringMode>("NORMAL");
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -50,7 +63,6 @@ export function ContestForm({ isAdmin, redirectPath }: ContestFormProps) {
       duration: parseInt(duration),
       isPublic: isAdmin ? isPublic : false, // Force false if not admin
       proctoringMode,
-      password: (!isAdmin || !isPublic) ? password : undefined,
     });
 
     setIsSubmitting(false);
@@ -110,6 +122,7 @@ export function ContestForm({ isAdmin, redirectPath }: ContestFormProps) {
             <input 
               type="datetime-local"
               value={startTime}
+              min={minDateTime}
               onChange={(e) => setStartTime(e.target.value)}
               className="w-full px-4 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
             />
@@ -119,6 +132,7 @@ export function ContestForm({ isAdmin, redirectPath }: ContestFormProps) {
             <input 
               type="datetime-local"
               value={endTime}
+              min={startTime || minDateTime}
               onChange={(e) => setEndTime(e.target.value)}
               className="w-full px-4 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
             />
@@ -185,20 +199,6 @@ export function ContestForm({ isAdmin, redirectPath }: ContestFormProps) {
               <div>
                 <strong>Private Contest.</strong> As a standard user, your contests are inherently private. You can invite people directly or share your contest password.
               </div>
-            </div>
-          )}
-
-          {/* Password (Only show if private) */}
-          {(!isAdmin || !isPublic) && (
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-zinc-300 mb-1.5">Contest Password (Optional)</label>
-              <input 
-                type="text"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Leave blank for invite-only"
-                className="w-full sm:w-1/2 px-4 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
-              />
             </div>
           )}
 

@@ -5,6 +5,7 @@ import { getUserContestsServer, getMyInvites } from "@/app/actions/contests";
 import { getSessionWithRoles } from "@/app/actions/auth";
 import { redirect } from "next/navigation";
 import { PendingInvitesSection } from "@/components/contests/PendingInvitesSection";
+import { JoinContestForm } from "@/components/contests/JoinContestForm";
 
 export const dynamic = "force-dynamic";
 
@@ -29,13 +30,17 @@ export default async function UserContestsPage() {
           </p>
         </div>
         
-        <Link 
-          href="/contests/create"
-          className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Create Contest
-        </Link>
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <JoinContestForm />
+          
+          <Link 
+            href="/contests/create"
+            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 whitespace-nowrap"
+          >
+            <Plus className="w-4 h-4" />
+            Create
+          </Link>
+        </div>
       </div>
 
       <PendingInvitesSection initialInvites={myInvites} />
