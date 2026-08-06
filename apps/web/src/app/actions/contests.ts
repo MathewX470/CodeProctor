@@ -274,4 +274,175 @@ export async function removeProblemFromContest(contestId: string, problemId: str
   }
 }
 
+export async function updateContestSettings(contestId: string, data: any) {
+  const session = await getSessionWithRoles();
+  if (!session.session?.user) throw new Error("Unauthorized");
 
+  // Check if owner
+  const membership = await prisma.contestMember.findUnique({
+    where: { contestId_userId: { contestId, userId: session.session.user.id } }
+  });
+  const isAdmin = session.isSuperAdmin || session.permissions.includes("RBAC_CONTESTS");
+  if (!isAdmin && membership?.role !== "OWNER") {
+    throw new Error("Forbidden: Only the contest owner can update settings.");
+  }
+
+  // Enforcement: Standard users cannot make private contests public
+  if (data.isPublic && !isAdmin) {
+    throw new Error("Forbidden: Standard users cannot create public contests.");
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.contest.update({
+        where: { id: contestId },
+        data: {
+          title: data.title,
+          description: data.description,
+          startTime: new Date(data.startTime),
+          endTime: new Date(data.endTime),
+          duration: data.duration,
+        }
+      });
+
+      await tx.contestSettings.upsert({
+        where: { contestId },
+        create: {
+          contestId,
+          proctoringMode: data.proctoringMode,
+          requireCamera: data.requireCamera,
+          requireFullScreen: data.requireFullScreen,
+          detectTabSwitch: data.detectTabSwitch,
+          detectCopyPaste: data.detectCopyPaste,
+          password: data.password || null,
+          isPublic: data.isPublic,
+        },
+        update: {
+          proctoringMode: data.proctoringMode,
+          requireCamera: data.requireCamera,
+          requireFullScreen: data.requireFullScreen,
+          detectTabSwitch: data.detectTabSwitch,
+          detectCopyPaste: data.detectCopyPaste,
+          password: data.password || null,
+          isPublic: data.isPublic,
+        }
+      });
+    });
+
+    revalidatePath(`/contests/${contestId}/manage`);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function getContestMembers(contestId: string) {
+  const session = await getSessionWithRoles();
+  if (!session.session?.user) throw new Error("Unauthorized");
+
+  const members = await prisma.contestMember.findMany({
+    where: { contestId },
+    include: {
+      user: {
+        select: { name: true, email: true, image: true }
+      }
+    },
+    orderBy: { joinedAt: 'asc' }
+  });
+
+  return members.map(m => ({
+    id: m.id,
+    userId: m.userId,
+    name: m.user.name || m.user.email,
+    email: m.user.email,
+    role: m.role,
+    joinedAt: m.joinedAt,
+    isDisqualified: m.isDisqualified,
+    disqualifiedReason: m.disqualifiedReason,
+  }));
+}
+
+export async function addContestMember(contestId: string, email: string, role: "MODERATOR" | "PARTICIPANT") {
+  const session = await getSessionWithRoles();
+  if (!session.session?.user) throw new Error("Unauthorized");
+
+  // Check if owner or moderator
+  const membership = await prisma.contestMember.findUnique({
+    where: { contestId_userId: { contestId, userId: session.session.user.id } }
+  });
+  const isAdmin = session.isSuperAdmin || session.permissions.includes("RBAC_CONTESTS");
+  
+  if (!isAdmin) {
+    if (role === "MODERATOR" && membership?.role !== "OWNER") {
+      throw new Error("Forbidden: Only the contest owner can add moderators.");
+    }
+    if (role === "PARTICIPANT" && membership?.role !== "OWNER" && membership?.role !== "MODERATOR") {
+      throw new Error("Forbidden: Only owners and moderators can invite participants.");
+    }
+  }
+
+  // Find user by email
+  const userToAdd = await prisma.user.findUnique({ where: { email } });
+  if (!userToAdd) {
+    return { success: false, error: "No user found with that email address." };
+  }
+
+  try {
+    await prisma.contestMember.upsert({
+      where: { contestId_userId: { contestId, userId: userToAdd.id } },
+      create: {
+        contestId,
+        userId: userToAdd.id,
+        role: role,
+        invitedById: session.session.user.id
+      },
+      update: {
+        role: role,
+        invitedById: session.session.user.id
+      }
+    });
+
+    revalidatePath(`/contests/${contestId}/manage`);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function removeMember(contestId: string, memberId: string) {
+  const session = await getSessionWithRoles();
+  if (!session.session?.user) throw new Error("Unauthorized");
+
+  // Get the target member to see their role
+  const targetMember = await prisma.contestMember.findUnique({
+    where: { id: memberId }
+  });
+
+  if (!targetMember) return { success: false, error: "Member not found" };
+
+  // Check permissions
+  const myMembership = await prisma.contestMember.findUnique({
+    where: { contestId_userId: { contestId, userId: session.session.user.id } }
+  });
+  const isAdmin = session.isSuperAdmin || session.permissions.includes("RBAC_CONTESTS");
+
+  if (!isAdmin) {
+    if (myMembership?.role === "PARTICIPANT" || !myMembership) {
+      throw new Error("Forbidden");
+    }
+    // Moderators can't remove owners or other moderators
+    if (myMembership.role === "MODERATOR" && (targetMember.role === "OWNER" || targetMember.role === "MODERATOR")) {
+      throw new Error("Forbidden: Moderators can only remove participants.");
+    }
+  }
+
+  try {
+    await prisma.contestMember.delete({
+      where: { id: memberId }
+    });
+    revalidatePath(`/contests/${contestId}/manage`);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}

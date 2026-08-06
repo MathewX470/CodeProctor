@@ -7,13 +7,24 @@ import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { AccessDenied } from "@/app/(admin)/admin/components/AccessDenied";
 
-export default async function ContestManagementPage({ params }: { params: Promise<{ id: string }> }) {
+import { ContestSettingsTab } from "@/components/contests/ContestSettingsTab";
+import { ContestParticipantsTab } from "@/components/contests/ContestParticipantsTab";
+
+
+export default async function ContestManagementPage({ 
+  params,
+  searchParams
+}: { 
+  params: Promise<{ id: string }>,
+  searchParams: Promise<{ tab?: string }>
+}) {
   const session = await getSessionWithRoles();
   if (!session.session?.user) {
     redirect("/login");
   }
 
-  const { id } = await params;
+  const [{ id }, searchParamsData] = await Promise.all([params, searchParams]);
+  const tab = searchParamsData.tab || "problems";
   let contest;
 
   try {
@@ -26,7 +37,8 @@ export default async function ContestManagementPage({ params }: { params: Promis
   }
 
   // Determine back link (admin vs user)
-  const backLink = (session.isSuperAdmin || session.permissions.includes("RBAC_CONTESTS")) ? "/admin/contests" : "/contests";
+  const isAdmin = session.isSuperAdmin || session.permissions.includes("RBAC_CONTESTS");
+  const backLink = isAdmin ? "/admin/contests" : "/contests";
 
   return (
     <div className="p-6 md:p-10 max-w-7xl mx-auto space-y-6">
@@ -47,20 +59,30 @@ export default async function ContestManagementPage({ params }: { params: Promis
 
       <div className="border-b border-slate-200 dark:border-zinc-800">
         <nav className="-mb-px flex space-x-8">
-          <a href="#" className="border-blue-500 text-blue-600 dark:text-blue-400 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+          <Link 
+            href={`/contests/${contest.id}/manage?tab=problems`} 
+            className={`${tab === "problems" ? "border-blue-500 text-blue-600 dark:text-blue-400" : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 dark:text-zinc-400 dark:hover:text-zinc-300"} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+          >
             Problems
-          </a>
-          <a href="#" className="border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 dark:text-zinc-400 dark:hover:text-zinc-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+          </Link>
+          <Link 
+            href={`/contests/${contest.id}/manage?tab=participants`} 
+            className={`${tab === "participants" ? "border-blue-500 text-blue-600 dark:text-blue-400" : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 dark:text-zinc-400 dark:hover:text-zinc-300"} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+          >
             Participants
-          </a>
-          <a href="#" className="border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 dark:text-zinc-400 dark:hover:text-zinc-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+          </Link>
+          <Link 
+            href={`/contests/${contest.id}/manage?tab=settings`} 
+            className={`${tab === "settings" ? "border-blue-500 text-blue-600 dark:text-blue-400" : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 dark:text-zinc-400 dark:hover:text-zinc-300"} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+          >
             Settings
-          </a>
+          </Link>
         </nav>
       </div>
 
-      {/* For now, just render the problems manager tab directly */}
-      <ContestManagerClient contest={contest} />
+      {tab === "problems" && <ContestManagerClient contest={contest} />}
+      {tab === "participants" && <ContestParticipantsTab contest={contest} isAdmin={isAdmin} />}
+      {tab === "settings" && <ContestSettingsTab contest={contest} isAdmin={isAdmin} />}
 
     </div>
   );
