@@ -4,9 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { getSessionWithRoles } from "../auth";
 
 export async function getTagsServer() {
-  const { isSuperAdmin, permissions } = await getSessionWithRoles();
+  const { session } = await getSessionWithRoles();
   
-  if (!isSuperAdmin && !permissions.includes("RBAC_PROBLEMS")) {
+  if (!session?.user) {
     throw new Error("Unauthorized");
   }
 
@@ -41,9 +41,9 @@ export async function getTagsWithCountsServer() {
 }
 
 export async function createTagServer(name: string) {
-  const { isSuperAdmin, permissions } = await getSessionWithRoles();
+  const { session, isSuperAdmin, permissions } = await getSessionWithRoles();
   
-  if (!isSuperAdmin && !permissions.includes("RBAC_PROBLEMS")) {
+  if (!session?.user || (!isSuperAdmin && !permissions.includes("RBAC_PROBLEMS"))) {
     throw new Error("Unauthorized");
   }
 

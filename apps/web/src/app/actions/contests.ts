@@ -142,4 +142,141 @@ export async function getAdminContestsServer() {
   });
 }
 
+// -------------------------------------------------------------
+// Contest Management
+// -------------------------------------------------------------
+
+export async function getContestForManagement(contestId: string) {
+  const session = await getSessionWithRoles();
+  if (!session.session?.user) throw new Error("Unauthorized");
+
+  const contest = await prisma.contest.findUnique({
+    where: { id: contestId },
+    include: {
+      settings: true,
+      members: {
+        where: { userId: session.session.user.id }
+      },
+      problems: {
+        include: {
+          problem: {
+            select: { id: true, title: true, difficulty: true }
+          }
+        },
+        orderBy: { order: 'asc' }
+      }
+    }
+  });
+
+  if (!contest) throw new Error("Contest not found");
+
+  // Check RBAC
+  const isOwnerOrMod = contest.members.some(m => m.role === "OWNER" || m.role === "MODERATOR");
+  if (!session.isSuperAdmin && !session.permissions.includes("RBAC_CONTESTS") && !isOwnerOrMod) {
+    throw new Error("Forbidden: You do not have permission to manage this contest.");
+  }
+
+  return contest;
+}
+
+export async function searchProblemsForContest(query: string) {
+  const session = await getSessionWithRoles();
+  if (!session.session?.user) return [];
+
+  // Admins can see all problems. Regular users see public + their own.
+  const isAdmin = session.isSuperAdmin || session.permissions.includes("RBAC_PROBLEMS");
+
+  const problems = await prisma.problem.findMany({
+    where: {
+      isDeleted: false,
+      title: { contains: query, mode: "insensitive" },
+      ...(isAdmin ? {} : {
+        OR: [
+          { isPublic: true },
+          { createdById: session.session.user.id }
+        ]
+      })
+    },
+    select: {
+      id: true,
+      title: true,
+      difficulty: true,
+      isPublic: true,
+      createdById: true
+    },
+    take: 20
+  });
+
+  return problems.map(p => ({
+    ...p,
+    isOwner: p.createdById === session.session?.user.id
+  }));
+}
+
+export async function addProblemToContest(contestId: string, problemId: string, points: number) {
+  const session = await getSessionWithRoles();
+  if (!session.session?.user) throw new Error("Unauthorized");
+
+  // Basic check to ensure they can manage it
+  const membership = await prisma.contestMember.findUnique({
+    where: { contestId_userId: { contestId, userId: session.session.user.id } }
+  });
+  const isAdmin = session.isSuperAdmin || session.permissions.includes("RBAC_CONTESTS");
+  if (!isAdmin && (!membership || (membership.role !== "OWNER" && membership.role !== "MODERATOR"))) {
+    throw new Error("Forbidden");
+  }
+
+  // Get current max order
+  const maxOrder = await prisma.contestProblem.aggregate({
+    where: { contestId },
+    _max: { order: true }
+  });
+
+  const nextOrder = (maxOrder._max.order ?? -1) + 1;
+
+  try {
+    await prisma.contestProblem.create({
+      data: {
+        contestId,
+        problemId,
+        points,
+        order: nextOrder
+      }
+    });
+    revalidatePath(`/contests/${contestId}/manage`);
+    return { success: true };
+  } catch (err: any) {
+    if (err.code === "P2002") {
+      return { success: false, error: "Problem is already in this contest" };
+    }
+    return { success: false, error: "Failed to add problem" };
+  }
+}
+
+export async function removeProblemFromContest(contestId: string, problemId: string) {
+  const session = await getSessionWithRoles();
+  if (!session.session?.user) throw new Error("Unauthorized");
+
+  const membership = await prisma.contestMember.findUnique({
+    where: { contestId_userId: { contestId, userId: session.session.user.id } }
+  });
+  const isAdmin = session.isSuperAdmin || session.permissions.includes("RBAC_CONTESTS");
+  if (!isAdmin && (!membership || (membership.role !== "OWNER" && membership.role !== "MODERATOR"))) {
+    throw new Error("Forbidden");
+  }
+
+  try {
+    await prisma.contestProblem.delete({
+      where: {
+        contestId_problemId: { contestId, problemId }
+      }
+    });
+
+    revalidatePath(`/contests/${contestId}/manage`);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: "Failed to remove problem" };
+  }
+}
+
 

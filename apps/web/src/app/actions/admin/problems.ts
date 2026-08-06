@@ -64,9 +64,9 @@ export async function getProblemBySlugServer(slug: string) {
   };
 }
 export async function getLanguagesServer() {
-  const { isSuperAdmin, permissions } = await getSessionWithRoles();
+  const { session } = await getSessionWithRoles();
   
-  if (!isSuperAdmin && !permissions.includes("RBAC_PROBLEMS")) {
+  if (!session?.user) {
     throw new Error("Unauthorized");
   }
 
@@ -96,8 +96,13 @@ export type UpdateProblemInput = CreateProblemInput;
 export async function createProblemServer(data: CreateProblemInput) {
   const { session, isSuperAdmin, permissions } = await getSessionWithRoles();
   
-  if (!session?.user || (!isSuperAdmin && !permissions.includes("RBAC_PROBLEMS"))) {
-    throw new Error("Unauthorized");
+  if (!session?.user) throw new Error("Unauthorized");
+  
+  const hasAdminPerm = isSuperAdmin || permissions.includes("RBAC_PROBLEMS");
+  if (!hasAdminPerm) {
+    if (data.isPublic) {
+      throw new Error("Standard users cannot create public problems.");
+    }
   }
 
   // Check if slug exists
@@ -174,10 +179,20 @@ export async function createProblemServer(data: CreateProblemInput) {
 }
 
 export async function updateProblemServer(id: string, data: UpdateProblemInput) {
-  const { isSuperAdmin, permissions } = await getSessionWithRoles();
-  
-  if (!isSuperAdmin && !permissions.includes("RBAC_PROBLEMS")) {
-    throw new Error("Unauthorized");
+  const { session, isSuperAdmin, permissions } = await getSessionWithRoles();
+  if (!session?.user) throw new Error("Unauthorized");
+
+  const problem = await prisma.problem.findUnique({ where: { id } });
+  if (!problem) throw new Error("Problem not found");
+
+  const hasAdminPerm = isSuperAdmin || permissions.includes("RBAC_PROBLEMS");
+  if (!hasAdminPerm) {
+    if (problem.createdById !== session.user.id) {
+      throw new Error("You can only edit problems you created.");
+    }
+    if (data.isPublic) {
+      throw new Error("Standard users cannot make problems public.");
+    }
   }
 
   // Check if slug exists and belongs to another problem
@@ -282,10 +297,17 @@ export async function updateProblemServer(id: string, data: UpdateProblemInput) 
 }
 
 export async function archiveProblemServer(problemId: string) {
-  const { isSuperAdmin, permissions } = await getSessionWithRoles();
+  const { session, isSuperAdmin, permissions } = await getSessionWithRoles();
+  if (!session?.user) throw new Error("Unauthorized");
   
-  if (!isSuperAdmin && !permissions.includes("RBAC_PROBLEMS")) {
-    throw new Error("Unauthorized");
+  const problem = await prisma.problem.findUnique({ where: { id: problemId } });
+  if (!problem) throw new Error("Problem not found");
+
+  const hasAdminPerm = isSuperAdmin || permissions.includes("RBAC_PROBLEMS");
+  if (!hasAdminPerm) {
+    if (problem.createdById !== session.user.id) {
+      throw new Error("You can only delete problems you created.");
+    }
   }
 
   await prisma.problem.update({
