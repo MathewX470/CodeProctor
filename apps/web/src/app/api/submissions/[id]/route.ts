@@ -24,6 +24,7 @@ export async function GET(
     const submission = await prisma.submission.findUnique({
       where: { id },
       include: {
+        language: true,
         testCaseResults: {
           include: {
             testCase: {
@@ -75,6 +76,9 @@ export async function GET(
       executionTime: submission.executionTime,
       memoryUsed: submission.memoryUsed,
       judgedAt: submission.judgedAt,
+      sourceCode: submission.sourceCode,
+      languageId: submission.languageId,
+      languageName: submission.language.name,
       testCases: sanitizedResults
     });
     

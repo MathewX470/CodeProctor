@@ -15,12 +15,14 @@ export function ProblemForm({
   initialTags, 
   initialLanguages,
   initialData,
-  problemId
+  problemId,
+  isAdmin = true
 }: { 
   initialTags: Tag[], 
   initialLanguages: Language[],
   initialData?: any,
-  problemId?: string
+  problemId?: string,
+  isAdmin?: boolean
 }) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -85,21 +87,22 @@ export function ProblemForm({
     }
     
     setIsSubmitting(true);
+    const payload = {
+      ...formData,
+      tagIds: selectedTagIds
+    };
+
     try {
       if (problemId) {
-        await updateProblemServer(problemId, {
-          ...formData,
-          tagIds: selectedTagIds
-        });
-        toast.success("Problem updated successfully!");
+        await updateProblemServer(problemId, payload);
+        toast.success("Problem updated successfully");
       } else {
-        await createProblemServer({
-          ...formData,
-          tagIds: selectedTagIds
-        });
-        toast.success("Problem created successfully!");
+        await createProblemServer(payload);
+        toast.success("Problem created successfully");
       }
-      router.push("/admin/problems");
+      
+      router.push(isAdmin ? "/admin/problems" : "/contests");
+      router.refresh();
     } catch (e: any) {
       toast.error(e.message || "Failed to save problem");
     } finally {
@@ -196,18 +199,20 @@ export function ProblemForm({
               />
             </div>
 
-            <div className="flex items-center gap-3 mt-8">
-              <input 
-                type="checkbox" 
-                id="isPublic"
-                checked={formData.isPublic}
-                onChange={e => setFormData(prev => ({ ...prev, isPublic: e.target.checked }))}
-                className="w-4 h-4 text-blue-600 rounded"
-              />
-              <label htmlFor="isPublic" className="text-sm font-medium text-slate-700 dark:text-zinc-300">
-                Publish immediately (Make Public)
-              </label>
-            </div>
+            {isAdmin && (
+              <div className="flex items-center gap-3 mt-8">
+                <input 
+                  type="checkbox" 
+                  id="isPublic"
+                  checked={formData.isPublic}
+                  onChange={e => setFormData(prev => ({ ...prev, isPublic: e.target.checked }))}
+                  className="w-4 h-4 text-blue-600 rounded"
+                />
+                <label htmlFor="isPublic" className="text-sm font-medium text-slate-700 dark:text-zinc-300">
+                  Publish immediately (Make Public)
+                </label>
+              </div>
+            )}
           </div>
         )}
 
@@ -279,7 +284,7 @@ export function ProblemForm({
             {/* Test Cases */}
             <div>
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold dark:text-white">Hidden Test Cases</h3>
+                <h3 className="text-lg font-semibold dark:text-white">Execution Test Cases</h3>
                 <button onClick={addTestCase} className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-purple-50 text-purple-600 hover:bg-purple-100 dark:bg-purple-500/10 dark:text-purple-400 rounded-lg transition-colors">
                   <Plus className="w-4 h-4" /> Add Test Case
                 </button>
@@ -312,9 +317,25 @@ export function ProblemForm({
                         }} className="w-full p-2 mt-1 border rounded text-slate-900 dark:bg-zinc-800 dark:border-zinc-700 dark:text-white font-mono text-sm" rows={3} />
                       </div>
                     </div>
+                    <div className="mt-3 flex items-center gap-2">
+                      <input 
+                        type="checkbox" 
+                        id={`hidden-${i}`}
+                        checked={tc.isHidden} 
+                        onChange={e => {
+                          const newTc = [...formData.testCases];
+                          newTc[i].isHidden = e.target.checked;
+                          setFormData(prev => ({ ...prev, testCases: newTc }));
+                        }}
+                        className="w-4 h-4 text-purple-600 rounded"
+                      />
+                      <label htmlFor={`hidden-${i}`} className="text-sm font-medium text-slate-700 dark:text-zinc-300 cursor-pointer">
+                        Hidden (Executed only when user clicks Submit)
+                      </label>
+                    </div>
                   </div>
                 ))}
-                {formData.testCases.length === 0 && <p className="text-sm text-slate-500">No hidden test cases added.</p>}
+                {formData.testCases.length === 0 && <p className="text-sm text-slate-500">No execution test cases added.</p>}
               </div>
             </div>
           </div>
@@ -324,27 +345,31 @@ export function ProblemForm({
         {activeTab === "tags" && (
           <div className="max-w-2xl space-y-6">
             
-            <div>
-              <label className="text-sm font-medium text-slate-700 dark:text-zinc-300">Create New Tag</label>
-              <div className="flex mt-1.5 gap-2">
-                <input 
-                  type="text" 
-                  value={newTagName}
-                  onChange={e => setNewTagName(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && handleCreateTag()}
-                  className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-slate-900 dark:bg-zinc-800 dark:border-zinc-700 dark:text-white"
-                  placeholder="e.g. Dynamic Programming"
-                />
-                <button 
-                  onClick={handleCreateTag}
-                  className="px-4 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 rounded-lg transition-colors font-medium text-sm"
-                >
-                  Create
-                </button>
-              </div>
-            </div>
+            {isAdmin && (
+              <>
+                <div>
+                  <label className="text-sm font-medium text-slate-700 dark:text-zinc-300">Create New Tag</label>
+                  <div className="flex mt-1.5 gap-2">
+                    <input 
+                      type="text" 
+                      value={newTagName}
+                      onChange={e => setNewTagName(e.target.value)}
+                      onKeyDown={e => e.key === "Enter" && handleCreateTag()}
+                      className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-slate-900 dark:bg-zinc-800 dark:border-zinc-700 dark:text-white"
+                      placeholder="e.g. Dynamic Programming"
+                    />
+                    <button 
+                      onClick={handleCreateTag}
+                      className="px-4 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 rounded-lg transition-colors font-medium text-sm"
+                    >
+                      Create
+                    </button>
+                  </div>
+                </div>
 
-            <hr className="border-slate-200 dark:border-zinc-800" />
+                <hr className="border-slate-200 dark:border-zinc-800" />
+              </>
+            )}
 
             <div>
               <h3 className="text-sm font-medium text-slate-700 dark:text-zinc-300 mb-3">Available Tags</h3>
