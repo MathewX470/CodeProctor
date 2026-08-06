@@ -1,6 +1,8 @@
 import React from "react";
 import { Search, Eye, Ban, Archive, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { getSessionWithRoles } from "@/app/actions/auth";
+import { getAdminContestsServer } from "@/app/actions/contests";
 import { AccessDenied } from "../components/AccessDenied";
 
 export const dynamic = "force-dynamic";
@@ -11,12 +13,8 @@ export default async function AdminContestsPage() {
   if (!isSuperAdmin && !permissions.includes("RBAC_CONTESTS")) {
     return <AccessDenied message="You need the 'Manage Contests' permission to view this page." />;
   }
-  const contests = [
-    { id: 1, name: "Weekly Arena 142", creator: "Alice Smith", participants: 412, status: "Active", created: "2024-05-10" },
-    { id: 2, name: "University Qualifier", creator: "Bob Jones", participants: 1050, status: "Upcoming", created: "2024-05-15" },
-    { id: 3, name: "Beginner Coding Challenge", creator: "Charlie Davis", participants: 85, status: "Ended", created: "2024-04-01" },
-    { id: 4, name: "Company Hackathon", creator: "Diana Prince", participants: 320, status: "Archived", created: "2024-03-20" },
-  ];
+
+  const contests = await getAdminContestsServer();
 
   return (
     <div className="p-6 md:p-10 max-w-7xl mx-auto space-y-6">
@@ -37,9 +35,12 @@ export default async function AdminContestsPage() {
               className="w-full sm:w-64 pl-9 pr-4 py-2 bg-white dark:bg-zinc-900/40 border border-slate-200 dark:border-zinc-800 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
             />
           </div>
-          <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap">
+          <Link 
+            href="/admin/contests/create"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+          >
             Create Global Contest
-          </button>
+          </Link>
         </div>
       </div>
 
@@ -59,8 +60,13 @@ export default async function AdminContestsPage() {
             <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/50">
               {contests.map((contest) => (
                 <tr key={contest.id} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/30 transition-colors">
-                  <td className="px-6 py-4 font-bold text-slate-900 dark:text-white">
+                  <td className="px-6 py-4 font-bold text-slate-900 dark:text-white flex items-center gap-2">
                     {contest.name}
+                    {contest.isPublic ? (
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 uppercase tracking-wider">Public</span>
+                    ) : (
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-slate-400 uppercase tracking-wider">Private</span>
+                    )}
                   </td>
                   <td className="px-6 py-4 text-slate-600 dark:text-zinc-300">
                     {contest.creator}
