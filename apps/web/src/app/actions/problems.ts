@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionWithRoles } from "./auth";
 
 export async function getPublicProblemBySlugServer(slug: string) {
-  const { isSuperAdmin, permissions } = await getSessionWithRoles();
+  const { isSuperAdmin, permissions, session } = await getSessionWithRoles();
   const isAdmin = isSuperAdmin || permissions.includes("RBAC_PROBLEMS");
 
   // Fetch the problem
@@ -34,6 +34,19 @@ export async function getPublicProblemBySlugServer(slug: string) {
   // Fetch all supported languages so users can select any language even if no template exists
   const allLanguages = await prisma.language.findMany();
 
+  // Fetch the current user's past submissions for this problem
+  let submissions: any[] = [];
+  if (session?.user?.id) {
+    submissions = await prisma.submission.findMany({
+      where: {
+        problemId: problem.id,
+        userId: session.user.id
+      },
+      orderBy: { submittedAt: "desc" },
+      include: { language: true }
+    });
+  }
+
   // Format the data for the public IDE
   // NOTICE: We specifically DO NOT fetch `testCases` here to prevent cheating.
   return {
@@ -58,6 +71,15 @@ export async function getPublicProblemBySlugServer(slug: string) {
       id: l.id,
       name: l.name,
       slug: l.slug
+    })),
+    submissions: submissions.map(s => ({
+      id: s.id,
+      status: s.status,
+      verdict: s.verdict,
+      executionTime: s.executionTime,
+      memoryUsed: s.memoryUsed,
+      languageName: s.language.name,
+      createdAt: s.submittedAt
     }))
   };
 }
