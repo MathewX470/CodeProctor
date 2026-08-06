@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { Panel, Group, Separator } from "react-resizable-panels";
 import Editor from "@monaco-editor/react";
 import { useTheme } from "next-themes";
-import { Play, Send, CheckCircle2, XCircle, AlertCircle, Loader2, Code2, Clock, MemoryStick, Tag, ChevronDown, Terminal } from "lucide-react";
+import { Play, Send, CheckCircle2, XCircle, AlertCircle, Loader2, Code2, Clock, MemoryStick, Tag, ChevronDown, Terminal, Trophy } from "lucide-react";
 import { toast } from "sonner";
 import dynamic from "next/dynamic";
 import "@uiw/react-markdown-preview/markdown.css";
@@ -49,8 +49,12 @@ export function ProblemIDE({ problem }: { problem: ProblemData }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [outputTab, setOutputTab] = useState<"testcases" | "result">("testcases");
   const [leftTab, setLeftTab] = useState<"description" | "submissions">("description");
+  const [rightTab, setRightTab] = useState<"code" | "submission">("code");
   const [submissionResult, setSubmissionResult] = useState<any>(null);
   const [submissionsList, setSubmissionsList] = useState<any[]>(problem.submissions || []);
+  const [analyticsData, setAnalyticsData] = useState<any>(null);
+  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
+  const [activeChart, setActiveChart] = useState<"runtime" | "memory">("runtime");
 
   // Get current template for UI
   const currentTemplate = problem.templates.find(t => t.languageId === selectedLang);
@@ -68,13 +72,51 @@ export function ProblemIDE({ problem }: { problem: ProblemData }) {
     }
   };
 
+  const loadPastSubmission = async (id: string) => {
+    setIsRunning(true);
+    setSubmissionResult(null);
+    setAnalyticsData(null);
+    try {
+      const res = await fetch(`/api/submissions/${id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setSubmissionResult(data);
+        // Do not override user's current working code in selectedLang.
+        // We will just show data.sourceCode in the read-only submission tab!
+        setRightTab("submission");
+        setOutputTab("result");
+        
+        // Fetch analytics if it was accepted
+        if (data.verdict === "ACCEPTED") {
+          fetchAnalytics(data.id);
+        }
+      }
+    } catch (e) {
+      toast.error("Failed to load submission");
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
+  const fetchAnalytics = async (submissionId: string) => {
+    setIsLoadingAnalytics(true);
+    try {
+      const res = await fetch(`/api/problems/${problem.slug}/analytics?submissionId=${submissionId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setAnalyticsData(data);
+      }
+    } catch (e) {
+      console.error("Failed to load analytics");
+    } finally {
+      setIsLoadingAnalytics(false);
+    }
+  };
+
   const executeCode = async (actionType: "RUN" | "SUBMIT") => {
     if (actionType === "RUN") setIsRunning(true);
     else setIsSubmitting(true);
     
-    setOutputTab("result");
-    setSubmissionResult({ status: "QUEUED" });
-
     try {
       // 1. Submit Code
       const res = await fetch("/api/submissions", {
@@ -116,12 +158,13 @@ export function ProblemIDE({ problem }: { problem: ProblemData }) {
                  createdAt: new Date().toISOString()
                };
                setSubmissionsList(prev => [newSub, ...prev]);
-               // Switch to the submissions tab to show it
-               setLeftTab("submissions");
+               // Switch to the submission right tab to show it
+               setRightTab("submission");
             }
             
             if (data.verdict === "ACCEPTED") {
               toast.success("Execution Successful!");
+              fetchAnalytics(data.id);
             } else {
               toast.error(`Execution Failed: ${data.verdict}`);
             }
@@ -331,7 +374,11 @@ export function ProblemIDE({ problem }: { problem: ProblemData }) {
                             const isAccepted = sub.verdict === "ACCEPTED";
                             
                             return (
-                              <div key={sub.id || i} className="grid grid-cols-12 items-center text-sm py-3 px-4 hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors">
+                              <div 
+                                key={sub.id || i} 
+                                onClick={() => loadPastSubmission(sub.id)}
+                                className="grid grid-cols-12 items-center text-sm py-3 px-4 hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer"
+                              >
                                 <div className="col-span-4 flex flex-col">
                                   <span className={`font-semibold ${isAccepted ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}`}>
                                     {sub.verdict === "ACCEPTED" ? "Accepted" : sub.verdict?.replace(/_/g, " ")}
@@ -374,38 +421,198 @@ export function ProblemIDE({ problem }: { problem: ProblemData }) {
               
               {/* EDITOR TOP */}
               <Panel defaultSize={70} minSize={30}>
-                <div className="h-full bg-white dark:bg-[#1e1e1e] flex flex-col relative">
-                  {!selectedLang ? (
-                    <div className="flex-1 flex items-center justify-center text-slate-400 dark:text-zinc-500 text-sm">
-                      Select a language to start coding
-                    </div>
-                  ) : (
-                    <Editor
-                      height="100%"
-                      language={getMonacoLanguage(currentLangObj?.slug || "")}
-                      theme={resolvedTheme === "dark" ? "vs-dark" : "light"}
-                      value={currentCode}
-                      onChange={handleCodeChange}
-                      options={{
-                        minimap: { enabled: false },
-                        fontSize: 14,
-                        fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-                        lineHeight: 24,
-                        padding: { top: 16, bottom: 16 },
-                        scrollBeyondLastLine: false,
-                        smoothScrolling: true,
-                        cursorBlinking: "smooth",
-                        cursorSmoothCaretAnimation: "on",
-                        formatOnPaste: true,
-                        renderLineHighlight: "all",
-                      }}
-                      loading={
-                        <div className="flex h-full items-center justify-center text-blue-500">
-                          <Loader2 className="w-6 h-6 animate-spin" />
+                <div className="h-full bg-white dark:bg-[#1e1e1e] flex flex-col relative overflow-hidden">
+                  
+                  {/* Right Pane Tabs */}
+                  <div className="flex items-center gap-6 px-4 border-b border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/50 shrink-0">
+                    <button 
+                      onClick={() => setRightTab("code")}
+                      className={`py-2.5 text-xs font-medium border-b-2 flex items-center gap-2 transition-colors ${
+                        rightTab === "code" 
+                          ? "border-blue-600 text-blue-600 dark:text-blue-400" 
+                          : "border-transparent text-slate-500 hover:text-slate-700 dark:text-zinc-400 dark:hover:text-zinc-300"
+                      }`}
+                    >
+                      <Code2 className="w-3.5 h-3.5" /> Code
+                    </button>
+                    {submissionResult && submissionResult.id && (
+                      <button 
+                        onClick={() => setRightTab("submission")}
+                        className={`py-2.5 text-xs font-medium border-b-2 flex items-center gap-2 transition-colors ${
+                          rightTab === "submission" 
+                            ? "border-blue-600 text-blue-600 dark:text-blue-400" 
+                            : "border-transparent text-slate-500 hover:text-slate-700 dark:text-zinc-400 dark:hover:text-zinc-300"
+                        }`}
+                      >
+                        {submissionResult.verdict === "ACCEPTED" ? (
+                          <><CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> <span className="text-green-600 dark:text-green-500">Accepted</span></>
+                        ) : submissionResult.verdict ? (
+                          <><XCircle className="w-3.5 h-3.5 text-red-500" /> <span className="text-red-600 dark:text-red-500">{submissionResult.verdict.replace(/_/g, " ")}</span></>
+                        ) : (
+                          <><Clock className="w-3.5 h-3.5" /> Submission</>
+                        )}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Right Pane Content Area */}
+                  <div className="flex-1 relative min-h-0 bg-white dark:bg-[#1e1e1e]">
+                    
+                    {/* Active Editor Tab */}
+                    <div className={`absolute inset-0 ${rightTab === "code" ? "flex flex-col" : "hidden"}`}>
+                      {!selectedLang ? (
+                        <div className="flex-1 flex items-center justify-center text-slate-400 dark:text-zinc-500 text-sm">
+                          Select a language to start coding
                         </div>
-                      }
-                    />
-                  )}
+                      ) : (
+                        <Editor
+                          height="100%"
+                          language={getMonacoLanguage(currentLangObj?.slug || "")}
+                          theme={resolvedTheme === "dark" ? "vs-dark" : "light"}
+                          value={currentCode}
+                          onChange={handleCodeChange}
+                          options={{
+                            minimap: { enabled: false },
+                            fontSize: 14,
+                            fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                            lineHeight: 24,
+                            padding: { top: 16, bottom: 16 },
+                            scrollBeyondLastLine: false,
+                            smoothScrolling: true,
+                            cursorBlinking: "smooth",
+                            cursorSmoothCaretAnimation: "on",
+                            formatOnPaste: true,
+                            renderLineHighlight: "all",
+                          }}
+                          loading={
+                            <div className="flex h-full items-center justify-center text-blue-500">
+                              <Loader2 className="w-6 h-6 animate-spin" />
+                            </div>
+                          }
+                        />
+                      )}
+                    </div>
+
+                    {/* Submission Details Tab */}
+                    {submissionResult && submissionResult.id && (
+                      <div className={`absolute inset-0 overflow-y-auto bg-slate-50 dark:bg-zinc-950 p-6 ${rightTab === "submission" ? "block" : "hidden"}`}>
+                        
+                        {/* Analytics View */}
+                        {submissionResult.verdict === "ACCEPTED" && (
+                          <div className="mb-8">
+                            {isLoadingAnalytics || !analyticsData ? (
+                              <div className="h-40 flex items-center justify-center text-sm text-slate-500">
+                                <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading analytics...
+                              </div>
+                            ) : (
+                              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm">
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-8">
+                                  <div 
+                                    onClick={() => setActiveChart("runtime")}
+                                    className={`flex-1 p-3 rounded-lg cursor-pointer transition-colors border-2 ${activeChart === "runtime" ? "border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800/50" : "border-transparent hover:bg-slate-50 dark:hover:bg-zinc-800/30"}`}
+                                  >
+                                    <div className="text-slate-500 dark:text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5"><Clock className="w-3.5 h-3.5"/> Runtime</div>
+                                    <div className="flex items-baseline gap-2 mb-1">
+                                      <div className="text-3xl font-black text-slate-800 dark:text-zinc-100">{submissionResult.executionTime}</div>
+                                      <div className="text-slate-500 dark:text-zinc-400 font-medium">ms</div>
+                                    </div>
+                                    <div className="text-sm font-semibold text-slate-600 dark:text-zinc-300 flex items-center gap-1.5">
+                                      Beats <span className="text-green-600 dark:text-green-400 text-base">{analyticsData.runtimePercentile}%</span>
+                                      <Trophy className="w-4 h-4 text-green-500" />
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="hidden sm:block w-px h-20 bg-slate-200 dark:bg-zinc-800"></div>
+
+                                  <div 
+                                    onClick={() => setActiveChart("memory")}
+                                    className={`flex-1 p-3 rounded-lg cursor-pointer transition-colors border-2 ${activeChart === "memory" ? "border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800/50" : "border-transparent hover:bg-slate-50 dark:hover:bg-zinc-800/30"}`}
+                                  >
+                                    <div className="text-slate-500 dark:text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5"><MemoryStick className="w-3.5 h-3.5"/> Memory</div>
+                                    <div className="flex items-baseline gap-2 mb-1">
+                                      <div className="text-3xl font-black text-slate-800 dark:text-zinc-100">{(submissionResult.memoryUsed / 1024).toFixed(1)}</div>
+                                      <div className="text-slate-500 dark:text-zinc-400 font-medium">MB</div>
+                                    </div>
+                                    <div className="text-sm font-semibold text-slate-600 dark:text-zinc-300 flex items-center gap-1.5">
+                                      Beats <span className="text-green-600 dark:text-green-400 text-base">{analyticsData.memoryPercentile}%</span>
+                                      <Trophy className="w-4 h-4 text-green-500" />
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Histogram */}
+                                <div className="mt-4 border-t border-slate-100 dark:border-zinc-800 pt-6">
+                                  <div className="text-xs font-bold text-slate-500 dark:text-zinc-400 mb-6 flex justify-between">
+                                    <span>{activeChart === "runtime" ? "Runtime" : "Memory"} Distribution</span>
+                                    <span className="font-medium bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 rounded">{analyticsData.totalSubmissions} users</span>
+                                  </div>
+                                  <div className="h-32 flex items-end gap-[2px] border-b-2 border-slate-200 dark:border-zinc-800 pb-1 relative px-2">
+                                    {(activeChart === "runtime" ? analyticsData.runtimeDistribution : analyticsData.memoryDistribution).map((bucket: any, idx: number) => {
+                                      const maxCount = Math.max(...(activeChart === "runtime" ? analyticsData.runtimeDistribution : analyticsData.memoryDistribution).map((b: any) => b.count), 1);
+                                      const heightPercent = (bucket.count / maxCount) * 100;
+                                      return (
+                                        <div key={idx} className="flex-1 flex flex-col justify-end items-center group relative h-full">
+                                          {bucket.isCurrent && (
+                                            <div className="absolute -top-7 bg-blue-500 text-white text-[10px] font-bold px-2 py-1 rounded shadow-md z-10 whitespace-nowrap">
+                                              You
+                                              <div className="absolute bottom-[-4px] left-1/2 -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-blue-500"></div>
+                                            </div>
+                                          )}
+                                          <div 
+                                            className={`w-full rounded-t-[2px] transition-all duration-300 ${bucket.isCurrent ? 'bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.6)] z-0' : 'bg-slate-300 dark:bg-zinc-700 group-hover:bg-slate-400 dark:group-hover:bg-zinc-600'}`}
+                                            style={{ height: `${Math.max(2, heightPercent)}%` }}
+                                          ></div>
+                                          
+                                          {/* Tooltip */}
+                                          <div className="opacity-0 group-hover:opacity-100 absolute bottom-full mb-2 bg-slate-800 text-white text-[10px] px-2 py-1 rounded shadow-lg pointer-events-none whitespace-nowrap z-20 transition-opacity">
+                                            {activeChart === "memory" 
+                                              ? `${(bucket.min / 1024).toFixed(1)}-${(bucket.max / 1024).toFixed(1)} MB` 
+                                              : `${bucket.min}-${bucket.max} ms`}
+                                            : {bucket.count} users
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Read-only Code View */}
+                        <div className="bg-white dark:bg-[#1e1e1e] border border-slate-200 dark:border-zinc-800 rounded-lg overflow-hidden flex flex-col shadow-sm">
+                          <div className="px-4 py-3 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between bg-slate-50 dark:bg-zinc-900/80">
+                            <div className="text-sm font-semibold text-slate-700 dark:text-zinc-300 flex items-center gap-2">
+                              <Code2 className="w-4 h-4 text-blue-500" />
+                              Submitted Code
+                            </div>
+                            <span className="px-2.5 py-1 bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 rounded text-xs font-medium">
+                              {submissionResult.languageName || submissionResult.languageId}
+                            </span>
+                          </div>
+                          <div className="h-[400px]">
+                            <Editor
+                              height="100%"
+                              language={getMonacoLanguage(problem.allLanguages.find(l => l.id === submissionResult.languageId)?.slug || "")}
+                              theme={resolvedTheme === "dark" ? "vs-dark" : "light"}
+                              value={submissionResult.sourceCode}
+                              options={{
+                                readOnly: true,
+                                minimap: { enabled: false },
+                                fontSize: 13,
+                                fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                                lineHeight: 22,
+                                padding: { top: 16, bottom: 16 },
+                                scrollBeyondLastLine: false,
+                              }}
+                            />
+                          </div>
+                        </div>
+
+                      </div>
+                    )}
+                  </div>
                 </div>
               </Panel>
 
