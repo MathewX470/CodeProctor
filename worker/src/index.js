@@ -16,7 +16,10 @@ const worker = new Worker(
     const result = await executeSubmission(job.data);
     return result;
   },
-  { connection }
+  { 
+    connection,
+    concurrency: parseInt(process.env.WORKER_CONCURRENCY || '5', 10)
+  }
 );
 
 worker.on('completed', (job, returnvalue) => {
