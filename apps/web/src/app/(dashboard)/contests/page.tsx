@@ -220,7 +220,11 @@ export default async function UserContestsPage() {
                   </div>
                   
                   <div className="border-t border-slate-100 dark:border-zinc-800 p-4 bg-slate-50 dark:bg-zinc-950/50 flex gap-3">
-                    <JoinPublicButton contestId={contest.id} />
+                    <JoinPublicButton 
+                      contestId={contest.id} 
+                      isUpcoming={isUpcoming} 
+                      isEnded={!isActive && !isUpcoming} 
+                    />
                   </div>
                 </div>
               );
