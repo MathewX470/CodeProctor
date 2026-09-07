@@ -648,3 +648,186 @@ export async function removeMember(contestId: string, memberId: string) {
     return { success: false, error: err.message };
   }
 }
+
+export async function getArenaDataServer(contestId: string) {
+  const session = await getSessionWithRoles();
+  if (!session.session?.user) throw new Error("Unauthorized");
+
+  const userId = session.session.user.id;
+
+  const contest = await prisma.contest.findUnique({
+    where: { id: contestId },
+    include: {
+      settings: true,
+      problems: {
+        include: {
+          problem: {
+            select: {
+              id: true,
+              title: true,
+              slug: true,
+              difficulty: true,
+              timeLimit: true,
+              memoryLimit: true,
+              submissions: {
+                where: { userId, contestId },
+                select: { id: true, verdict: true }
+              }
+            }
+          }
+        },
+        orderBy: { order: "asc" }
+      },
+      members: {
+        where: { userId }
+      }
+    }
+  });
+
+  if (!contest) {
+    console.log(`[getArenaDataServer] Contest ${contestId} not found`);
+    throw new Error("Contest not found");
+  }
+
+  console.log(`[getArenaDataServer] Fetching contest=${contestId} for user=${userId}. Members array length:`, contest.members.length);
+
+  const member = contest.members[0];
+  if (!member) {
+    console.log(`[getArenaDataServer] User ${userId} is not a member of contest ${contestId}. Existing members not shown in query.`);
+    throw new Error("You are not a member of this contest");
+  }
+
+  return {
+    contest: {
+      id: contest.id,
+      title: contest.title,
+      startTime: contest.startTime,
+      endTime: contest.endTime,
+      duration: contest.duration,
+      settings: contest.settings,
+    },
+    problems: contest.problems,
+    member: member
+  };
+}
+
+export async function startContestTimer(contestId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const session = await getSessionWithRoles();
+    if (!session.session?.user) throw new Error("Unauthorized");
+
+    const userId = session.session.user.id;
+
+    const member = await prisma.contestMember.findUnique({
+      where: { contestId_userId: { contestId, userId } }
+    });
+
+    if (!member) throw new Error("Not a member");
+    if (member.startedAt) return { success: true }; // Already started
+
+    await prisma.contestMember.update({
+      where: { contestId_userId: { contestId, userId } },
+      data: { startedAt: new Date() }
+    });
+
+    revalidatePath(`/contests/${contestId}`);
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Failed to start timer" };
+  }
+}
+
+export async function endContestServer(contestId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const session = await getSessionWithRoles();
+    if (!session.session?.user) throw new Error("Unauthorized");
+
+    const userId = session.session.user.id;
+
+    const member = await prisma.contestMember.findUnique({
+      where: { contestId_userId: { contestId, userId } }
+    });
+
+    if (!member) throw new Error("Not a member");
+    if ((member as any).completedAt) return { success: true }; // Already completed
+
+    await (prisma.contestMember as any).update({
+      where: { contestId_userId: { contestId, userId } },
+      data: { completedAt: new Date() }
+    });
+
+    revalidatePath(`/contests/${contestId}`);
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Failed to end contest" };
+  }
+}
+
+export async function getProblemForArenaServer(contestId: string, problemId: string) {
+  const session = await getSessionWithRoles();
+  if (!session.session?.user) throw new Error("Unauthorized");
+  const userId = session.session.user.id;
+
+  const member = await prisma.contestMember.findUnique({
+    where: { contestId_userId: { contestId, userId } },
+    include: { contest: true }
+  });
+
+  if (!member || !member.startedAt) {
+    throw new Error("Contest not started or unauthorized");
+  }
+
+  const problemData = await prisma.problem.findUnique({
+    where: { id: problemId },
+    include: {
+      problemTags: { include: { tag: true } },
+      samples: { orderBy: { order: "asc" } },
+      languageTemplates: true,
+      submissions: {
+        where: { userId, contestId },
+        orderBy: { submittedAt: "desc" },
+        include: { language: true }
+      }
+    }
+  });
+
+  if (!problemData) throw new Error("Problem not found");
+
+  const allLanguages = await prisma.language.findMany({
+    where: { isActive: true }
+  });
+
+  const allProblemsRaw = await prisma.contestProblem.findMany({
+    where: { contestId },
+    orderBy: { order: "asc" },
+    include: { problem: { select: { id: true, title: true } } }
+  });
+  
+  const allProblems = allProblemsRaw.map(cp => ({ id: cp.problem.id, title: cp.problem.title }));
+
+  // Calculate time remaining
+  const startedAt = new Date(member.startedAt);
+  const timeBasedOnDuration = new Date(startedAt.getTime() + member.contest.duration * 60000);
+  const globalEndTime = new Date(member.contest.endTime);
+  const userEndTime = timeBasedOnDuration < globalEndTime ? timeBasedOnDuration : globalEndTime;
+
+  return {
+    problem: {
+      ...problemData,
+      templates: problemData.languageTemplates,
+      tags: problemData.problemTags.map(pt => pt.tag.name),
+      allLanguages,
+      submissions: problemData.submissions.map(s => ({
+        id: s.id,
+        status: s.status,
+        verdict: s.verdict,
+        executionTime: s.executionTime,
+        memoryUsed: s.memoryUsed,
+        languageName: s.language.name,
+        createdAt: s.submittedAt
+      }))
+    },
+    allProblems,
+    userEndTime: userEndTime.toISOString()
+  };
+}
