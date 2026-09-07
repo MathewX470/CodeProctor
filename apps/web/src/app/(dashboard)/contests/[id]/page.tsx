@@ -1,5 +1,5 @@
 import React from "react";
-import { getArenaDataServer } from "@/app/actions/contests";
+import { getArenaDataServer, getContestResultsServer } from "@/app/actions/contests";
 import { redirect } from "next/navigation";
 import { Clock, AlertTriangle, ShieldCheck, CheckCircle2, ChevronRight } from "lucide-react";
 import Link from "next/link";
@@ -37,7 +37,7 @@ export default async function ContestArenaDashboard(props: { params: Promise<{ i
   }
 
   const isUserTimeUp = userEndTime ? now > userEndTime : false;
-  const isCompleted = !!member.completedAt || isUserTimeUp;
+  const isCompleted = !!(member as any).completedAt || isUserTimeUp;
 
   // Render: Not Started Yet
   if (!hasStarted) {
@@ -102,38 +102,35 @@ export default async function ContestArenaDashboard(props: { params: Promise<{ i
 
   // Render: Completed / Time is Up
   if (isCompleted) {
-    const totalProblems = problems.length;
-    let attempted = 0;
-    let accepted = 0;
-    
-    problems.forEach(p => {
-      if (p.problem.submissions.length > 0) {
-        attempted++;
-        if (p.problem.submissions.some((s: any) => s.verdict === "ACCEPTED")) {
-          accepted++;
-        }
-      }
-    });
+    const results = await getContestResultsServer(params.id);
 
     return (
-      <div className="max-w-4xl mx-auto p-6 md:p-10 space-y-8">
+      <div className="max-w-5xl mx-auto p-6 md:p-10 space-y-8">
         <div className="bg-white dark:bg-zinc-900 rounded-2xl p-10 border border-slate-200 dark:border-zinc-800 shadow-sm text-center">
           <div className="w-20 h-20 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center mx-auto mb-6">
             <CheckCircle2 className="w-10 h-10 text-green-600 dark:text-green-500" />
           </div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">Test Completed</h1>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">Contest Results</h1>
           <p className="text-slate-500 dark:text-zinc-400 mb-8 max-w-md mx-auto">
-            Your assessment has been officially submitted. Below is a summary of your performance.
+            Your assessment has been officially submitted. Below is a detailed summary of your performance.
           </p>
 
-          <div className="grid grid-cols-2 gap-4 max-w-md mx-auto mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             <div className="p-4 bg-slate-50 dark:bg-zinc-950 rounded-xl border border-slate-100 dark:border-zinc-800/50">
-              <div className="text-3xl font-black text-slate-900 dark:text-white mb-1">{attempted} / {totalProblems}</div>
-              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Attempted</div>
+              <div className="text-3xl font-black text-slate-900 dark:text-white mb-1">{results.stats.score}</div>
+              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Score</div>
             </div>
             <div className="p-4 bg-slate-50 dark:bg-zinc-950 rounded-xl border border-slate-100 dark:border-zinc-800/50">
-              <div className="text-3xl font-black text-slate-900 dark:text-white mb-1">{accepted}</div>
+              <div className="text-3xl font-black text-slate-900 dark:text-white mb-1">#{results.stats.rank}</div>
+              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Rank</div>
+            </div>
+            <div className="p-4 bg-slate-50 dark:bg-zinc-950 rounded-xl border border-slate-100 dark:border-zinc-800/50">
+              <div className="text-3xl font-black text-slate-900 dark:text-white mb-1">{results.stats.solved} / {results.stats.total}</div>
               <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Solved</div>
+            </div>
+            <div className="p-4 bg-slate-50 dark:bg-zinc-950 rounded-xl border border-slate-100 dark:border-zinc-800/50">
+              <div className="text-3xl font-black text-slate-900 dark:text-white mb-1">{results.stats.penalty}</div>
+              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Penalty (mins)</div>
             </div>
           </div>
 
@@ -147,39 +144,71 @@ export default async function ContestArenaDashboard(props: { params: Promise<{ i
 
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
           <div className="p-6 border-b border-slate-200 dark:border-zinc-800">
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white">Questions Summary</h2>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">Submission Breakdown</h2>
           </div>
           <div className="divide-y divide-slate-100 dark:divide-zinc-800/50">
-            {problems.map((cp, idx) => {
-              const subs = cp.problem.submissions;
-              const hasAttempt = subs.length > 0;
-              const isAccepted = subs.some((s: any) => s.verdict === "ACCEPTED");
+            {results.problems.map((p, idx) => {
+              const isAccepted = p.bestSubmission?.verdict === "ACCEPTED";
+              const hasAttempt = p.history.length > 0;
               
               return (
-                <div key={cp.id} className="p-6 flex items-center justify-between">
-                  <div className="flex items-center gap-6">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${
-                      !hasAttempt ? "bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400" :
-                      isAccepted ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-500" :
-                      "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-500"
-                    }`}>
-                      {idx + 1}
+                <details key={p.id} className="group">
+                  <summary className="p-6 flex items-center justify-between cursor-pointer hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors list-none">
+                    <div className="flex items-center gap-6">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${
+                        !hasAttempt ? "bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400" :
+                        isAccepted ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-500" :
+                        "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-500"
+                      }`}>
+                        {idx + 1}
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-slate-900 dark:text-white">{p.title}</h3>
+                        <div className="flex gap-4 mt-1 text-sm">
+                          <span className={isAccepted ? "text-green-600 dark:text-green-500 font-semibold" : "text-slate-500 dark:text-zinc-400"}>
+                            {isAccepted ? `✓ Accepted` : hasAttempt ? `✗ Attempted` : `Not attempted`}
+                          </span>
+                          {isAccepted && p.bestSubmission && (
+                            <>
+                              <span className="text-slate-300 dark:text-zinc-700">•</span>
+                              <span className="text-slate-500 dark:text-zinc-400">Runtime: {p.bestSubmission.executionTime} ms</span>
+                              <span className="text-slate-300 dark:text-zinc-700">•</span>
+                              <span className="text-slate-500 dark:text-zinc-400">Memory: {p.bestSubmission.memoryUsed} KB</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-bold text-slate-900 dark:text-white">{cp.problem.title}</h3>
-                      <p className="text-sm text-slate-500 dark:text-zinc-400">
-                        {hasAttempt ? `${subs.length} submission(s)` : "Not attempted"}
-                      </p>
+                    <div className="flex items-center gap-4">
+                      {isAccepted && <span className="font-bold text-green-600 dark:text-green-500">+{p.points}</span>}
+                      <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-slate-400 group-open:-rotate-90 transition-transform">
+                        <ChevronRight className="w-5 h-5" />
+                      </div>
                     </div>
-                  </div>
+                  </summary>
+                  
                   {hasAttempt && (
-                    <span className={`px-3 py-1 rounded text-xs font-bold uppercase ${
-                      isAccepted ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-500" : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-500"
-                    }`}>
-                      {isAccepted ? "Solved" : "Attempted"}
-                    </span>
+                    <div className="px-6 pb-6 pt-2 bg-slate-50/50 dark:bg-zinc-900/50 border-t border-slate-100 dark:border-zinc-800/50">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-500 mb-3">Submission History</h4>
+                      <div className="space-y-2">
+                        {p.history.map((sub: any) => (
+                          <div key={sub.id} className="flex justify-between items-center text-sm p-3 bg-white dark:bg-zinc-950 rounded-lg border border-slate-200 dark:border-zinc-800">
+                            <div className="flex items-center gap-3">
+                              <span className={`font-semibold ${sub.verdict === 'ACCEPTED' ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}`}>
+                                {sub.verdict === 'ACCEPTED' ? '✓ Accepted' : `✗ ${sub.verdict || 'PENDING'}`}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-6 text-slate-500 dark:text-zinc-400 font-mono text-xs">
+                              <span className="w-20 text-right">{sub.executionTime ? `${sub.executionTime} ms` : '-'}</span>
+                              <span className="w-20 text-right">{sub.memoryUsed ? `${sub.memoryUsed} KB` : '-'}</span>
+                              <span className="w-32 text-right">{new Date(sub.submittedAt).toLocaleTimeString()}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   )}
-                </div>
+                </details>
               );
             })}
           </div>

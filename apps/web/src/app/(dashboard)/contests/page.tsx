@@ -188,8 +188,6 @@ export default async function UserContestsPage() {
         </div>
       )}
 
-  // We have replaced the rendering block
-
 
       {/* Public Contests Section */}
       {publicContests.length > 0 && (

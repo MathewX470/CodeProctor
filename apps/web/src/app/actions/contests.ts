@@ -831,3 +831,127 @@ export async function getProblemForArenaServer(contestId: string, problemId: str
     userEndTime: userEndTime.toISOString()
   };
 }
+
+export async function getContestResultsServer(contestId: string) {
+  const session = await getSessionWithRoles();
+  if (!session.session?.user) throw new Error("Unauthorized");
+  const userId = session.session.user.id;
+
+  const contest = await prisma.contest.findUnique({
+    where: { id: contestId },
+    include: {
+      problems: {
+        orderBy: { order: "asc" },
+        include: {
+          problem: {
+            select: { id: true, title: true, difficulty: true }
+          }
+        }
+      },
+      members: true
+    }
+  });
+
+  if (!contest) throw new Error("Contest not found");
+
+  const member = contest.members.find(m => m.userId === userId);
+  if (!member) throw new Error("Not a member");
+
+  const allSubmissions = await prisma.submission.findMany({
+    where: { contestId },
+    orderBy: { submittedAt: 'asc' },
+    select: {
+      id: true,
+      userId: true,
+      problemId: true,
+      verdict: true,
+      executionTime: true,
+      memoryUsed: true,
+      submittedAt: true,
+      status: true
+    }
+  });
+
+  // Calculate scores for all members
+  const memberStats = contest.members.map(m => {
+    let score = 0;
+    let penalty = 0;
+    let solvedCount = 0;
+    const mSubs = allSubmissions.filter(s => s.userId === m.userId);
+
+    contest.problems.forEach(cp => {
+      const pSubs = mSubs.filter(s => s.problemId === cp.problemId);
+      
+      let wrongAttempts = 0;
+      let firstAccepted: any = null;
+
+      for (const sub of pSubs) {
+        if (sub.verdict === "ACCEPTED") {
+          firstAccepted = sub;
+          break;
+        }
+        if (sub.verdict && sub.verdict !== "COMPILATION_ERROR") {
+          wrongAttempts++;
+        }
+      }
+
+      if (firstAccepted) {
+        score += cp.points;
+        solvedCount++;
+        // Penalty: minutes from start to first accepted + 20 mins per wrong attempt
+        const startTime = m.startedAt ? new Date(m.startedAt) : new Date(contest.startTime);
+        const timeElapsedMins = Math.max(0, Math.floor((new Date(firstAccepted.submittedAt).getTime() - startTime.getTime()) / 60000));
+        penalty += timeElapsedMins + (wrongAttempts * 20);
+      }
+    });
+
+    return { userId: m.userId, score, penalty, solvedCount };
+  });
+
+  // Rank members
+  memberStats.sort((a, b) => {
+    if (a.score !== b.score) return b.score - a.score;
+    return a.penalty - b.penalty;
+  });
+
+  const currentUserStats = memberStats.find(s => s.userId === userId);
+  const rank = memberStats.findIndex(s => s.userId === userId) + 1;
+
+  // Build user's specific problem breakdown
+  const userSubmissions = allSubmissions.filter(s => s.userId === userId);
+  const problemBreakdown = contest.problems.map(cp => {
+    const subs = userSubmissions.filter(s => s.problemId === cp.problemId);
+    // Sort submissions descending for history view
+    const sortedSubs = [...subs].sort((a, b) => b.submittedAt.getTime() - a.submittedAt.getTime());
+    
+    const accepted = subs.find(s => s.verdict === "ACCEPTED");
+    let bestSub = null;
+    if (accepted) {
+      bestSub = accepted;
+    } else if (subs.length > 0) {
+      bestSub = sortedSubs[0];
+    }
+
+    return {
+      id: cp.problem.id,
+      title: cp.problem.title,
+      difficulty: cp.problem.difficulty,
+      points: cp.points,
+      bestSubmission: bestSub,
+      history: sortedSubs
+    };
+  });
+
+  return {
+    contestId: contest.id,
+    title: contest.title,
+    stats: {
+      score: currentUserStats?.score || 0,
+      rank: rank > 0 ? rank : '-',
+      solved: currentUserStats?.solvedCount || 0,
+      total: contest.problems.length,
+      penalty: currentUserStats?.penalty || 0
+    },
+    problems: problemBreakdown
+  };
+}
