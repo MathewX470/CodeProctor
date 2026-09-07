@@ -22,6 +22,107 @@ export default async function UserContestsPage() {
     getPublicContestsServer()
   ]);
 
+  const ongoingMemberships: any[] = [];
+  const endedMemberships: any[] = [];
+
+  memberships.forEach((membership: any) => {
+    const contest = membership.contest;
+    const isGlobalEnded = new Date() > new Date(contest.endTime);
+    const isUserTimeUp = membership.startedAt && new Date() > new Date(new Date(membership.startedAt).getTime() + contest.duration * 60000);
+    const isCompleted = membership.completedAt || isGlobalEnded || isUserTimeUp;
+    
+    if (isCompleted) {
+      endedMemberships.push(membership);
+    } else {
+      ongoingMemberships.push(membership);
+    }
+  });
+
+  const renderMembershipCard = (membership: any) => {
+    const contest = membership.contest;
+    const settings = contest.settings;
+    const isOwner = membership.role === "OWNER";
+    const isUpcoming = new Date(contest.startTime) > new Date();
+    const isActive = new Date(contest.startTime) <= new Date() && new Date(contest.endTime) >= new Date();
+
+    return (
+      <div key={membership.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow group flex flex-col">
+        <div className="p-6 flex-1 flex flex-col">
+          <div className="flex justify-between items-start mb-4">
+            <div className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+              isActive ? 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400' :
+              isUpcoming ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400' :
+              'bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-400'
+            }`}>
+              {isActive ? 'Active Now' : isUpcoming ? 'Upcoming' : 'Ended'}
+            </div>
+            
+            <div className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${
+              isOwner ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400' : 'bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-400'
+            }`}>
+              {membership.role}
+            </div>
+          </div>
+
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2 line-clamp-1">
+            {contest.title}
+          </h3>
+          
+          {contest.description && (
+            <p className="text-sm text-slate-500 dark:text-zinc-400 line-clamp-2 mb-4">
+              {contest.description}
+            </p>
+          )}
+
+          <div className="mt-auto space-y-3">
+            <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-zinc-400">
+              <Calendar className="w-4 h-4 opacity-70" />
+              {new Date(contest.startTime).toLocaleDateString()} at {new Date(contest.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+            </div>
+            <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-zinc-400">
+              <Clock className="w-4 h-4 opacity-70" />
+              {contest.duration} minutes
+            </div>
+            <div className="flex items-center justify-between text-sm text-slate-600 dark:text-zinc-400 pt-3 border-t border-slate-100 dark:border-zinc-800">
+              <div className="flex items-center gap-1.5">
+                <Users className="w-4 h-4 opacity-70" />
+                {contest._count.members}
+              </div>
+              <div className="flex items-center gap-1.5">
+                {settings?.isPublic ? (
+                  <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400"><Globe className="w-3.5 h-3.5"/> Public</span>
+                ) : (
+                  <span className="flex items-center gap-1 text-slate-500"><Lock className="w-3.5 h-3.5"/> Private</span>
+                )}
+                <span className="mx-1.5 text-slate-300 dark:text-zinc-700">•</span>
+                <span title={settings?.proctoringMode || "NORMAL"}>
+                  <ShieldCheck className="w-4 h-4 opacity-70" />
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div className="border-t border-slate-100 dark:border-zinc-800 p-4 bg-slate-50 dark:bg-zinc-950/50 flex gap-3">
+          <Link 
+            href={`/contests/${contest.id}`}
+            className="flex-1 text-center py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+          >
+            {endedMemberships.some(m => m.id === membership.id) ? "View Results" : "Enter Arena"}
+          </Link>
+          {isOwner && (
+            <Link 
+              href={`/contests/${contest.id}/manage`}
+              className="px-4 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 rounded-lg text-sm font-medium transition-colors"
+            >
+              Manage
+            </Link>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="p-6 md:p-10 max-w-7xl mx-auto space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -64,93 +165,29 @@ export default async function UserContestsPage() {
           </Link>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          {memberships.map((membership) => {
-            const contest = membership.contest;
-            const settings = contest.settings;
-            const isOwner = membership.role === "OWNER";
-            const isUpcoming = new Date(contest.startTime) > new Date();
-            const isActive = new Date(contest.startTime) <= new Date() && new Date(contest.endTime) >= new Date();
-
-            return (
-              <div key={membership.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow group flex flex-col">
-                <div className="p-6 flex-1 flex flex-col">
-                  <div className="flex justify-between items-start mb-4">
-                    <div className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${
-                      isActive ? 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400' :
-                      isUpcoming ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400' :
-                      'bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-400'
-                    }`}>
-                      {isActive ? 'Active Now' : isUpcoming ? 'Upcoming' : 'Ended'}
-                    </div>
-                    
-                    <div className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${
-                      isOwner ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400' : 'bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-400'
-                    }`}>
-                      {membership.role}
-                    </div>
-                  </div>
-
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2 line-clamp-1">
-                    {contest.title}
-                  </h3>
-                  
-                  {contest.description && (
-                    <p className="text-sm text-slate-500 dark:text-zinc-400 line-clamp-2 mb-4">
-                      {contest.description}
-                    </p>
-                  )}
-
-                  <div className="mt-auto space-y-3">
-                    <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-zinc-400">
-                      <Calendar className="w-4 h-4 opacity-70" />
-                      {new Date(contest.startTime).toLocaleDateString()} at {new Date(contest.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-zinc-400">
-                      <Clock className="w-4 h-4 opacity-70" />
-                      {contest.duration} minutes
-                    </div>
-                    <div className="flex items-center justify-between text-sm text-slate-600 dark:text-zinc-400 pt-3 border-t border-slate-100 dark:border-zinc-800">
-                      <div className="flex items-center gap-1.5">
-                        <Users className="w-4 h-4 opacity-70" />
-                        {contest._count.members}
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        {settings?.isPublic ? (
-                          <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400"><Globe className="w-3.5 h-3.5"/> Public</span>
-                        ) : (
-                          <span className="flex items-center gap-1 text-slate-500"><Lock className="w-3.5 h-3.5"/> Private</span>
-                        )}
-                        <span className="mx-1.5 text-slate-300 dark:text-zinc-700">•</span>
-                        <span title={settings?.proctoringMode || "NORMAL"}>
-                          <ShieldCheck className="w-4 h-4 opacity-70" />
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="border-t border-slate-100 dark:border-zinc-800 p-4 bg-slate-50 dark:bg-zinc-950/50 flex gap-3">
-                  <Link 
-                    href={`/contests/${contest.id}`}
-                    className="flex-1 text-center py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
-                  >
-                    Enter Arena
-                  </Link>
-                  {isOwner && (
-                    <Link 
-                      href={`/contests/${contest.id}/manage`}
-                      className="px-4 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 rounded-lg text-sm font-medium transition-colors"
-                    >
-                      Manage
-                    </Link>
-                  )}
-                </div>
+        <div className="space-y-8">
+          {/* Ongoing Contests */}
+          {ongoingMemberships.length > 0 && (
+            <div>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4">Ongoing & Upcoming</h2>
+              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                {ongoingMemberships.map(renderMembershipCard)}
               </div>
-            );
-          })}
+            </div>
+          )}
+
+          {/* Ended Contests */}
+          {endedMemberships.length > 0 && (
+            <div>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4">Completed</h2>
+              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 opacity-80 hover:opacity-100 transition-opacity">
+                {endedMemberships.map(renderMembershipCard)}
+              </div>
+            </div>
+          )}
         </div>
       )}
+
 
       {/* Public Contests Section */}
       {publicContests.length > 0 && (
@@ -220,7 +257,11 @@ export default async function UserContestsPage() {
                   </div>
                   
                   <div className="border-t border-slate-100 dark:border-zinc-800 p-4 bg-slate-50 dark:bg-zinc-950/50 flex gap-3">
-                    <JoinPublicButton contestId={contest.id} />
+                    <JoinPublicButton 
+                      contestId={contest.id} 
+                      isUpcoming={isUpcoming} 
+                      isEnded={!isActive && !isUpcoming} 
+                    />
                   </div>
                 </div>
               );

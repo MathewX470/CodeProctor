@@ -304,6 +304,8 @@ model ContestMember {
   role                   ContestRole @default(PARTICIPANT)
   invitedById            String? // who added this member (owner, for MODERATOR/invited PARTICIPANT rows)
   joinedAt               DateTime    @default(now())
+  startedAt              DateTime?
+  completedAt            DateTime?
   bestScore              Int         @default(0)
   penalty                Int         @default(0)
   lastAcceptedSubmission DateTime?

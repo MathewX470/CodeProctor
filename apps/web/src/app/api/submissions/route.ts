@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     
     // 2. Parse body
     const body = await req.json();
-    const { problemId, languageId, sourceCode, actionType = "SUBMIT" } = body;
+    const { problemId, languageId, sourceCode, actionType = "SUBMIT", contestId } = body;
     
     if (!problemId || !languageId || !sourceCode) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
         userId,
         problemId,
         languageId,
+        contestId,
         sourceCode,
         status: "QUEUED",
       }
