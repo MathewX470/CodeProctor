@@ -53,9 +53,9 @@ export function DashboardNav() {
 
   const navItems = [
     { label: "Home", href: "/dashboard" },
-    { label: "Contests", href: "/dashboard#contests" },
+    { label: "Contests", href: "/contests" },
     { label: "Practice", href: "/problems" },
-    { label: "Submissions", href: "/dashboard#activity" },
+    { label: "Submissions", href: "/activity" },
     { label: "Leaderboard", href: "/leaderboard" },
   ];
 

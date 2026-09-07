@@ -25,12 +25,7 @@ export async function createContestServer(data: CreateContestInput) {
     throw new Error("End time must be after start time.");
   }
 
-  // Enforcement: Standard users cannot create public contests
-  if (data.isPublic) {
-    if (!session.isSuperAdmin && !session.permissions.includes("RBAC_CONTESTS")) {
-      throw new Error("Forbidden: Standard users cannot create public contests.");
-    }
-  }
+  // Public contests are now allowed for all users
 
   try {
     const contest = await prisma.$transaction(async (tx) => {
@@ -103,6 +98,30 @@ export async function getUserContestsServer() {
   });
 
   return memberships;
+}
+
+export async function getPublicContestsServer() {
+  const session = await getSessionWithRoles();
+  const userId = session.session?.user?.id;
+
+  const publicContests = await prisma.contest.findMany({
+    where: {
+      settings: { isPublic: true },
+      isDeleted: false,
+      ...(userId ? {
+        members: { none: { userId } }
+      } : {})
+    },
+    include: {
+      settings: true,
+      _count: {
+        select: { members: { where: { role: "PARTICIPANT" } } }
+      }
+    },
+    orderBy: { startTime: 'desc' }
+  });
+
+  return publicContests;
 }
 
 export async function getAdminContestsServer() {
@@ -289,10 +308,7 @@ export async function updateContestSettings(contestId: string, data: any) {
     throw new Error("Forbidden: Only the contest owner can update settings.");
   }
 
-  // Enforcement: Standard users cannot make private contests public
-  if (data.isPublic && !isAdmin) {
-    throw new Error("Forbidden: Standard users cannot create public contests.");
-  }
+  // Public contests are now allowed for all users
 
   if (new Date(data.endTime) <= new Date(data.startTime)) {
     throw new Error("End time must be after start time.");
@@ -554,6 +570,42 @@ export async function joinContestByCode(joinCode: string) {
 
     revalidatePath("/contests");
     return { success: true, contestId: contest.id };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function joinPublicContest(contestId: string) {
+  const session = await getSessionWithRoles();
+  if (!session.session?.user) throw new Error("Unauthorized");
+
+  try {
+    const contest = await prisma.contest.findUnique({
+      where: { id: contestId },
+      include: { settings: true }
+    });
+
+    if (!contest || !contest.settings?.isPublic) {
+      return { success: false, error: "Contest not found or is not public." };
+    }
+
+    const existingMember = await prisma.contestMember.findUnique({
+      where: { contestId_userId: { contestId, userId: session.session.user.id } }
+    });
+    if (existingMember) {
+      return { success: false, error: "You are already a member." };
+    }
+
+    await prisma.contestMember.create({
+      data: {
+        contestId,
+        userId: session.session.user.id,
+        role: "PARTICIPANT"
+      }
+    });
+
+    revalidatePath("/contests");
+    return { success: true, contestId };
   } catch (err: any) {
     return { success: false, error: err.message };
   }
