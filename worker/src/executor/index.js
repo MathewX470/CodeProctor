@@ -7,6 +7,7 @@ export async function executeSubmission(jobData) {
   const { submissionId } = jobData;
 
   // 1. Fetch submission details
+  console.log(`[Executor sub-${submissionId}] 🔍 Fetching submission from database...`);
   const submission = await prisma.submission.findUnique({
     where: { id: submissionId },
     include: { problem: true, language: true }
@@ -38,7 +39,8 @@ export async function executeSubmission(jobData) {
     orderBy: { createdAt: 'asc' }
   });
 
-  // Update status to COMPILING
+  // Update status to RUNNING
+  console.log(`[Executor sub-${submissionId}] 🚀 Updating status to RUNNING...`);
   await prisma.submission.update({
     where: { id: submissionId },
     data: { status: 'RUNNING' } // Or COMPILING if you added it to the enum
@@ -51,6 +53,7 @@ export async function executeSubmission(jobData) {
     tmpDir = await createTempEnvironment(submission.sourceCode, langConfig.fileName);
 
     // 2. Compilation Phase
+    console.log(`[Executor sub-${submissionId}] ⚙️  Compiling inside container...`);
     const compileResult = await compileContainer(langConfig.image, tmpDir, langConfig.compileCommand);
     
     if (!compileResult.success) {
@@ -59,6 +62,7 @@ export async function executeSubmission(jobData) {
     }
 
     // 3. Start Execution Container
+    console.log(`[Executor sub-${submissionId}] 🐳 Starting execution container ${containerName}...`);
     await startExecutionContainer(langConfig.image, tmpDir, containerName);
     
     let aggregateVerdict = 'ACCEPTED';
@@ -66,6 +70,7 @@ export async function executeSubmission(jobData) {
     let maxMemory = 0;
     
     // 4. Run Test Cases Loop
+    console.log(`[Executor sub-${submissionId}] 🧪 Running ${testCases.length} test cases...`);
     for (const testCase of testCases) {
       const tcResult = await runTestCase(
         containerName, 

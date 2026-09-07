@@ -106,24 +106,22 @@ export function ContestSettingsTab({ contest, isAdmin }: { contest: any, isAdmin
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm">
         <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Access & Privacy</h3>
         <div className="space-y-6">
-          {isAdmin && (
-            <label className="flex items-center gap-3 cursor-pointer p-4 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg transition-colors hover:border-slate-300 dark:hover:border-zinc-700">
-              <div className="relative">
-                <input
-                  type="checkbox"
-                  className="sr-only"
-                  checked={formData.isPublic}
-                  onChange={(e) => setFormData({ ...formData, isPublic: e.target.checked })}
-                />
-                <div className={`block w-10 h-6 rounded-full transition-colors ${formData.isPublic ? 'bg-blue-500' : 'bg-slate-300 dark:bg-zinc-700'}`}></div>
-                <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${formData.isPublic ? 'transform translate-x-4' : ''}`}></div>
-              </div>
-              <div>
-                <div className="font-bold text-slate-900 dark:text-white text-sm">Public Contest</div>
-                <div className="text-xs text-slate-500 dark:text-zinc-400">Available to all users on the platform</div>
-              </div>
-            </label>
-          )}
+          <label className="flex items-center gap-3 cursor-pointer p-4 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg transition-colors hover:border-slate-300 dark:hover:border-zinc-700">
+            <div className="relative">
+              <input
+                type="checkbox"
+                className="sr-only"
+                checked={formData.isPublic}
+                onChange={(e) => setFormData({ ...formData, isPublic: e.target.checked })}
+              />
+              <div className={`block w-10 h-6 rounded-full transition-colors ${formData.isPublic ? 'bg-blue-500' : 'bg-slate-300 dark:bg-zinc-700'}`}></div>
+              <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${formData.isPublic ? 'transform translate-x-4' : ''}`}></div>
+            </div>
+            <div>
+              <div className="font-bold text-slate-900 dark:text-white text-sm">Public Contest</div>
+              <div className="text-xs text-slate-500 dark:text-zinc-400">Available to all users on the platform</div>
+            </div>
+          </label>
 
           {!formData.isPublic && (
             <div className="text-sm text-slate-500 dark:text-zinc-400 p-4 bg-slate-50 dark:bg-zinc-900/50 rounded-lg border border-slate-100 dark:border-zinc-800">

@@ -61,7 +61,7 @@ export function ContestForm({ isAdmin, redirectPath }: ContestFormProps) {
       startTime: start,
       endTime: end,
       duration: parseInt(duration),
-      isPublic: isAdmin ? isPublic : false, // Force false if not admin
+      isPublic: isPublic,
       proctoringMode,
     });
 
@@ -158,49 +158,40 @@ export function ContestForm({ isAdmin, redirectPath }: ContestFormProps) {
         </div>
 
         <div className="space-y-6">
-          {/* Visibility Toggle (Admin Only) */}
-          {isAdmin ? (
-            <div className="flex gap-4">
-              <button
-                type="button"
-                onClick={() => setIsPublic(true)}
-                className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-xl border-2 transition-colors ${
-                  isPublic 
-                    ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300" 
-                    : "border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800/50"
-                }`}
-              >
-                <Globe className="w-5 h-5" />
-                <div className="text-left">
-                  <div className="font-bold text-sm">Public Contest</div>
-                  <div className="text-xs opacity-80 font-normal">Available to everyone on the platform.</div>
-                </div>
-              </button>
-              
-              <button
-                type="button"
-                onClick={() => setIsPublic(false)}
-                className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-xl border-2 transition-colors ${
-                  !isPublic 
-                    ? "border-amber-500 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300" 
-                    : "border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800/50"
-                }`}
-              >
-                <Lock className="w-5 h-5" />
-                <div className="text-left">
-                  <div className="font-bold text-sm">Private Contest</div>
-                  <div className="text-xs opacity-80 font-normal">Invite only or password protected.</div>
-                </div>
-              </button>
-            </div>
-          ) : (
-            <div className="p-4 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200 rounded-lg flex gap-3 text-sm border border-amber-200 dark:border-amber-800/30">
-              <Lock className="w-5 h-5 shrink-0" />
-              <div>
-                <strong>Private Contest.</strong> As a standard user, your contests are inherently private. You can invite people directly or share your contest password.
+          {/* Visibility Toggle */}
+          <div className="flex gap-4">
+            <button
+              type="button"
+              onClick={() => setIsPublic(true)}
+              className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-xl border-2 transition-colors ${
+                isPublic 
+                  ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300" 
+                  : "border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800/50"
+              }`}
+            >
+              <Globe className="w-5 h-5" />
+              <div className="text-left">
+                <div className="font-bold text-sm">Public Contest</div>
+                <div className="text-xs opacity-80 font-normal">Available to everyone on the platform.</div>
               </div>
-            </div>
-          )}
+            </button>
+            
+            <button
+              type="button"
+              onClick={() => setIsPublic(false)}
+              className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-xl border-2 transition-colors ${
+                !isPublic 
+                  ? "border-amber-500 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300" 
+                  : "border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800/50"
+              }`}
+            >
+              <Lock className="w-5 h-5" />
+              <div className="text-left">
+                <div className="font-bold text-sm">Private Contest</div>
+                <div className="text-xs opacity-80 font-normal">Invite only or password protected.</div>
+              </div>
+            </button>
+          </div>
 
           <hr className="border-slate-200 dark:border-zinc-800" />
 

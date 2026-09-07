@@ -25,12 +25,7 @@ export async function createContestServer(data: CreateContestInput) {
     throw new Error("End time must be after start time.");
   }
 
-  // Enforcement: Standard users cannot create public contests
-  if (data.isPublic) {
-    if (!session.isSuperAdmin && !session.permissions.includes("RBAC_CONTESTS")) {
-      throw new Error("Forbidden: Standard users cannot create public contests.");
-    }
-  }
+  // Public contests are now allowed for all users
 
   try {
     const contest = await prisma.$transaction(async (tx) => {
@@ -289,10 +284,7 @@ export async function updateContestSettings(contestId: string, data: any) {
     throw new Error("Forbidden: Only the contest owner can update settings.");
   }
 
-  // Enforcement: Standard users cannot make private contests public
-  if (data.isPublic && !isAdmin) {
-    throw new Error("Forbidden: Standard users cannot create public contests.");
-  }
+  // Public contests are now allowed for all users
 
   if (new Date(data.endTime) <= new Date(data.startTime)) {
     throw new Error("End time must be after start time.");
