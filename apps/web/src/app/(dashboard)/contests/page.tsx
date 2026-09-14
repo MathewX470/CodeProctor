@@ -120,39 +120,49 @@ export default async function UserContestsPage() {
         </div>
         
         <div className="border-t border-slate-100 dark:border-zinc-800 p-4 bg-slate-50/50 dark:bg-zinc-950/50 flex gap-2">
-          <Link 
-            href={`/contests/${contest.id}`}
-            className={`flex-1 text-center py-2 px-4 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 ${
-              stateType === "active"
-                ? "bg-green-600 hover:bg-green-700 text-white shadow-sm"
-                : stateType === "upcoming"
-                ? "bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
-                : "bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-900"
-            }`}
-          >
-            {stateType === "active" ? (
-              <>
-                <Play className="w-3.5 h-3.5 fill-current" />
-                Enter Arena
-              </>
-            ) : stateType === "upcoming" ? (
-              <>
-                <Clock className="w-3.5 h-3.5" />
-                View Lobby
-              </>
-            ) : (
-              <>
-                <Trophy className="w-3.5 h-3.5" />
-                View Results & Leaderboard
-              </>
-            )}
-          </Link>
-          {isOwner && (
+          {isOwner ? (
+            <>
+              <Link 
+                href={`/contests/${contest.id}/manage`}
+                className="flex-1 text-center py-2 px-4 rounded-xl text-sm font-semibold transition-colors bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+              >
+                Manage Contest
+              </Link>
+              <Link 
+                href={`/contests/${contest.id}`}
+                className="px-3.5 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 rounded-xl text-sm font-medium transition-colors"
+                title="View Standings & Analytics"
+              >
+                Standings
+              </Link>
+            </>
+          ) : (
             <Link 
-              href={`/contests/${contest.id}/manage`}
-              className="px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 rounded-xl text-sm font-medium transition-colors"
+              href={`/contests/${contest.id}`}
+              className={`flex-1 text-center py-2 px-4 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 ${
+                stateType === "active"
+                  ? "bg-green-600 hover:bg-green-700 text-white shadow-sm"
+                  : stateType === "upcoming"
+                  ? "bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+                  : "bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-900"
+              }`}
             >
-              Manage
+              {stateType === "active" ? (
+                <>
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  Enter Arena
+                </>
+              ) : stateType === "upcoming" ? (
+                <>
+                  <Clock className="w-3.5 h-3.5" />
+                  View Lobby
+                </>
+              ) : (
+                <>
+                  <Trophy className="w-3.5 h-3.5" />
+                  View Results & Leaderboard
+                </>
+              )}
             </Link>
           )}
         </div>

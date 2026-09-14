@@ -36,6 +36,10 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "You are not registered for this contest." }, { status: 403 });
       }
 
+      if (member.role === "OWNER" || member.role === "MODERATOR") {
+        return NextResponse.json({ error: "Contest creators and moderators cannot participate or submit solutions to this contest." }, { status: 403 });
+      }
+
       if (!member.startedAt) {
         return NextResponse.json({ error: "You must start the contest before submitting code." }, { status: 403 });
       }

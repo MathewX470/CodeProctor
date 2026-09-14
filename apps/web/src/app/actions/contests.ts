@@ -185,6 +185,12 @@ export async function getContestForManagement(contestId: string) {
           }
         },
         orderBy: { order: 'asc' }
+      },
+      _count: {
+        select: {
+          members: { where: { role: 'PARTICIPANT' } },
+          submissions: true
+        }
       }
     }
   });
@@ -735,6 +741,9 @@ export async function startContestTimer(contestId: string): Promise<{ success: b
     });
 
     if (!member) throw new Error("Not a member");
+    if (member.role === "OWNER" || member.role === "MODERATOR") {
+      throw new Error("Contest creators and moderators cannot participate in the contest.");
+    }
     if (member.startedAt) return { success: true }; // Already started
 
     await prisma.contestMember.update({
@@ -787,6 +796,10 @@ export async function getProblemForArenaServer(contestId: string, problemId: str
 
   if (!member || !member.startedAt) {
     throw new Error("Contest not started or unauthorized");
+  }
+
+  if (member.role === "OWNER" || member.role === "MODERATOR") {
+    throw new Error("Contest creators and moderators cannot enter the participant arena.");
   }
 
   // Calculate time remaining and verify not expired
@@ -920,8 +933,9 @@ export async function getContestResultsServer(contestId: string) {
     }
   });
 
-  // Calculate scores and problem matrices for all members
-  const memberStats = contest.members.map(m => {
+  // Calculate scores and problem matrices for PARTICIPANT members only
+  const participantMembers = contest.members.filter(m => m.role === "PARTICIPANT");
+  const memberStats = participantMembers.map(m => {
     let score = 0;
     let penalty = 0;
     let solvedCount = 0;
@@ -991,8 +1005,9 @@ export async function getContestResultsServer(contestId: string) {
     rank: index + 1
   }));
 
+  const isOrganizer = member.role === "OWNER" || member.role === "MODERATOR";
   const currentUserStats = rankedLeaderboard.find(s => s.userId === userId);
-  const rank = currentUserStats?.rank || 1;
+  const rank = currentUserStats?.rank || 0;
 
   // Build user's specific problem breakdown
   const userSubmissions = allSubmissions.filter(s => s.userId === userId);
@@ -1030,7 +1045,7 @@ export async function getContestResultsServer(contestId: string) {
   const problemAnalytics = contest.problems.map(cp => {
     const pSubs = allSubmissions.filter(s => s.problemId === cp.problemId);
     const uniqueSolvers = new Set(pSubs.filter(s => s.verdict === "ACCEPTED").map(s => s.userId)).size;
-    const totalParticipants = contest.members.length;
+    const totalParticipants = participantMembers.length;
     const solveRate = totalParticipants > 0 ? Math.round((uniqueSolvers / totalParticipants) * 100) : 0;
     return {
       problemId: cp.problemId,
@@ -1060,13 +1075,14 @@ export async function getContestResultsServer(contestId: string) {
     stats: {
       score: currentUserStats?.score || 0,
       totalPossibleScore: contest.problems.reduce((acc, p) => acc + p.points, 0),
-      rank: rank > 0 ? rank : 1,
-      totalParticipants: contest.members.length,
+      rank: rank,
+      totalParticipants: participantMembers.length,
       solved: currentUserStats?.solvedCount || 0,
       total: contest.problems.length,
       penalty: currentUserStats?.penalty || 0,
       accuracy: userAccuracy,
-      minutesSpent: totalMinutesSpent
+      minutesSpent: totalMinutesSpent,
+      isOrganizer
     },
     problems: problemBreakdown,
     leaderboard: rankedLeaderboard,

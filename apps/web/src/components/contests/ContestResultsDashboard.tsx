@@ -5,7 +5,7 @@ import Link from "next/link";
 import { 
   Trophy, Medal, CheckCircle2, XCircle, Clock, 
   BarChart3, Users, ChevronRight, ChevronDown, 
-  Code2, Sparkles, ArrowLeft, Eye, X, Award
+  Code2, Sparkles, ArrowLeft, Eye, X, Award, ShieldCheck
 } from "lucide-react";
 
 interface SubmissionHistoryItem {
@@ -64,6 +64,7 @@ interface ContestResultsDashboardProps {
       penalty: number;
       accuracy: number;
       minutesSpent: number;
+      isOrganizer?: boolean;
     };
     problems: ProblemBreakdownItem[];
     leaderboard: LeaderboardMember[];
@@ -81,14 +82,18 @@ interface ContestResultsDashboardProps {
     };
   };
   currentUserId: string;
+  isOrganizer?: boolean;
 }
 
-export function ContestResultsDashboard({ results, currentUserId }: ContestResultsDashboardProps) {
-  const [activeTab, setActiveTab] = useState<"problems" | "leaderboard" | "analytics">("problems");
+export function ContestResultsDashboard({ results, currentUserId, isOrganizer }: ContestResultsDashboardProps) {
+  const stats = results.stats;
+  const organizer = isOrganizer || stats.isOrganizer;
+
+  const [activeTab, setActiveTab] = useState<"problems" | "leaderboard" | "analytics">(
+    organizer ? "leaderboard" : "problems"
+  );
   const [expandedProblemId, setExpandedProblemId] = useState<string | null>(results.problems[0]?.id || null);
   const [selectedCodeSubmission, setSelectedCodeSubmission] = useState<SubmissionHistoryItem | null>(null);
-
-  const stats = results.stats;
 
   // Medal styling for top ranks
   const getRankBadge = (rank: number) => {
@@ -143,20 +148,34 @@ export function ContestResultsDashboard({ results, currentUserId }: ContestResul
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-8 border-b border-slate-100 dark:border-zinc-800">
           <div>
             <div className="flex items-center gap-3 mb-2">
-              {getRankBadge(stats.rank)}
+              {organizer ? (
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-black text-sm">
+                  <ShieldCheck className="w-4 h-4" /> Contest Organizer
+                </div>
+              ) : (
+                getRankBadge(stats.rank)
+              )}
               <span className="text-xs text-slate-400 dark:text-zinc-500">
-                out of {stats.totalParticipants} {stats.totalParticipants === 1 ? "participant" : "participants"}
+                {stats.totalParticipants} {stats.totalParticipants === 1 ? "contestant" : "contestants"} enrolled
               </span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
               {results.title}
             </h1>
             <p className="text-sm text-slate-500 dark:text-zinc-400 mt-1">
-              Assessment results and performance summary
+              {organizer ? "Contest organizer dashboard & live standings" : "Assessment results and performance summary"}
             </p>
           </div>
 
           <div className="flex items-center gap-3">
+            {organizer && (
+              <Link
+                href={`/contests/${results.contestId}/manage`}
+                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-colors shadow-sm shadow-blue-500/20"
+              >
+                Manage Contest
+              </Link>
+            )}
             <Link
               href="/contests"
               className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200 rounded-xl text-sm font-medium transition-colors"
@@ -168,66 +187,132 @@ export function ContestResultsDashboard({ results, currentUserId }: ContestResul
 
         {/* Key Metrics Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 pt-8">
-          {/* Score */}
-          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800/80">
-            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1">
-              Score
-            </div>
-            <div className="text-2xl font-black text-blue-600 dark:text-blue-400">
-              {stats.score}
-              <span className="text-xs font-normal text-slate-400 dark:text-zinc-500"> / {stats.totalPossibleScore}</span>
-            </div>
-          </div>
+          {organizer ? (
+            <>
+              {/* Contestants */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800/80">
+                <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1">
+                  Contestants
+                </div>
+                <div className="text-2xl font-black text-blue-600 dark:text-blue-400">
+                  {stats.totalParticipants}
+                </div>
+              </div>
 
-          {/* Rank */}
-          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800/80">
-            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1">
-              Rank
-            </div>
-            <div className="text-2xl font-black text-slate-900 dark:text-white">
-              #{stats.rank}
-            </div>
-          </div>
+              {/* Submissions */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800/80">
+                <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1">
+                  Submissions
+                </div>
+                <div className="text-2xl font-black text-purple-600 dark:text-purple-400">
+                  {results.analytics.totalSubmissions}
+                </div>
+              </div>
 
-          {/* Solved */}
-          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800/80">
-            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1">
-              Solved
-            </div>
-            <div className="text-2xl font-black text-green-600 dark:text-green-500">
-              {stats.solved} / {stats.total}
-            </div>
-          </div>
+              {/* Questions */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800/80">
+                <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1">
+                  Problems
+                </div>
+                <div className="text-2xl font-black text-slate-900 dark:text-white">
+                  {stats.total}
+                </div>
+              </div>
 
-          {/* Penalty */}
-          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800/80">
-            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1">
-              Penalty
-            </div>
-            <div className="text-2xl font-black text-amber-600 dark:text-amber-500">
-              {stats.penalty}m
-            </div>
-          </div>
+              {/* Total Points */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800/80">
+                <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1">
+                  Max Points
+                </div>
+                <div className="text-2xl font-black text-amber-600 dark:text-amber-500">
+                  {stats.totalPossibleScore}
+                </div>
+              </div>
 
-          {/* Accuracy */}
-          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800/80">
-            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1">
-              Accuracy
-            </div>
-            <div className="text-2xl font-black text-purple-600 dark:text-purple-400">
-              {stats.accuracy}%
-            </div>
-          </div>
+              {/* Duration */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800/80">
+                <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1">
+                  Duration
+                </div>
+                <div className="text-2xl font-black text-green-600 dark:text-green-500">
+                  {results.duration}m
+                </div>
+              </div>
 
-          {/* Time Spent */}
-          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800/80">
-            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1">
-              Time Spent
-            </div>
-            <div className="text-2xl font-black text-slate-700 dark:text-zinc-300">
-              {stats.minutesSpent}m
-            </div>
-          </div>
+              {/* Leader Score */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800/80">
+                <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1">
+                  Top Score
+                </div>
+                <div className="text-2xl font-black text-slate-700 dark:text-zinc-300">
+                  {results.leaderboard[0]?.score ?? 0}
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Score */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800/80">
+                <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1">
+                  Score
+                </div>
+                <div className="text-2xl font-black text-blue-600 dark:text-blue-400">
+                  {stats.score}
+                  <span className="text-xs font-normal text-slate-400 dark:text-zinc-500"> / {stats.totalPossibleScore}</span>
+                </div>
+              </div>
+
+              {/* Rank */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800/80">
+                <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1">
+                  Rank
+                </div>
+                <div className="text-2xl font-black text-slate-900 dark:text-white">
+                  #{stats.rank}
+                </div>
+              </div>
+
+              {/* Solved */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800/80">
+                <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1">
+                  Solved
+                </div>
+                <div className="text-2xl font-black text-green-600 dark:text-green-500">
+                  {stats.solved} / {stats.total}
+                </div>
+              </div>
+
+              {/* Penalty */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800/80">
+                <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1">
+                  Penalty
+                </div>
+                <div className="text-2xl font-black text-amber-600 dark:text-amber-500">
+                  {stats.penalty}m
+                </div>
+              </div>
+
+              {/* Accuracy */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800/80">
+                <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1">
+                  Accuracy
+                </div>
+                <div className="text-2xl font-black text-purple-600 dark:text-purple-400">
+                  {stats.accuracy}%
+                </div>
+              </div>
+
+              {/* Time Spent */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800/80">
+                <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1">
+                  Time Spent
+                </div>
+                <div className="text-2xl font-black text-slate-700 dark:text-zinc-300">
+                  {stats.minutesSpent}m
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
 

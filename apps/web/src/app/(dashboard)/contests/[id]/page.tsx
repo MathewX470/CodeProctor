@@ -51,6 +51,15 @@ export default async function ContestArenaDashboard(props: { params: Promise<{ i
   const totalPoints = problems.reduce((acc: number, p: any) => acc + (p.points || 100), 0);
 
   // ==========================================
+  // 0. STATE: ORGANIZER (OWNER / MODERATOR)
+  // ==========================================
+  const isOrganizer = member.role === "OWNER" || member.role === "MODERATOR";
+
+  if (isOrganizer) {
+    redirect(`/contests/${params.id}/manage`);
+  }
+
+  // ==========================================
   // 1. STATE: COMPLETED / TIME IS UP
   // ==========================================
   if (isCompleted) {
