@@ -24,6 +24,38 @@ export async function POST(req: NextRequest) {
     if (!problemId || !languageId || !sourceCode) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
+
+    // 2.5 Contest Validation: If submission is for a contest, verify user state & timer
+    if (contestId) {
+      const member = await prisma.contestMember.findUnique({
+        where: { contestId_userId: { contestId, userId } },
+        include: { contest: true }
+      });
+
+      if (!member) {
+        return NextResponse.json({ error: "You are not registered for this contest." }, { status: 403 });
+      }
+
+      if (!member.startedAt) {
+        return NextResponse.json({ error: "You must start the contest before submitting code." }, { status: 403 });
+      }
+
+      const now = new Date();
+      const startedAt = new Date(member.startedAt);
+      const timeBasedOnDuration = new Date(startedAt.getTime() + member.contest.duration * 60000);
+      const globalEndTime = new Date(member.contest.endTime);
+      const userEndTime = timeBasedOnDuration < globalEndTime ? timeBasedOnDuration : globalEndTime;
+
+      if ((member as any).completedAt || now > userEndTime) {
+        if (!(member as any).completedAt) {
+          await (prisma.contestMember as any).update({
+            where: { contestId_userId: { contestId, userId } },
+            data: { completedAt: now }
+          });
+        }
+        return NextResponse.json({ error: "Contest time has expired. Submissions are closed." }, { status: 403 });
+      }
+    }
     
     // 3. Create Submission in DB
     const submission = await prisma.submission.create({
