@@ -185,6 +185,12 @@ export async function getContestForManagement(contestId: string) {
           }
         },
         orderBy: { order: 'asc' }
+      },
+      _count: {
+        select: {
+          members: { where: { role: 'PARTICIPANT' } },
+          submissions: true
+        }
       }
     }
   });
@@ -685,28 +691,40 @@ export async function getArenaDataServer(contestId: string) {
   });
 
   if (!contest) {
-    console.log(`[getArenaDataServer] Contest ${contestId} not found`);
     throw new Error("Contest not found");
   }
 
-  console.log(`[getArenaDataServer] Fetching contest=${contestId} for user=${userId}. Members array length:`, contest.members.length);
-
   const member = contest.members[0];
   if (!member) {
-    console.log(`[getArenaDataServer] User ${userId} is not a member of contest ${contestId}. Existing members not shown in query.`);
     throw new Error("You are not a member of this contest");
   }
+
+  // Calculate problem statuses for current user
+  const problemsWithStatus = contest.problems.map(cp => {
+    const subs = cp.problem.submissions || [];
+    const isAccepted = subs.some(s => s.verdict === "ACCEPTED");
+    const hasAttempted = subs.length > 0;
+    const status: "ACCEPTED" | "ATTEMPTED" | "NOT_ATTEMPTED" = isAccepted 
+      ? "ACCEPTED" 
+      : (hasAttempted ? "ATTEMPTED" : "NOT_ATTEMPTED");
+
+    return {
+      ...cp,
+      userStatus: status
+    };
+  });
 
   return {
     contest: {
       id: contest.id,
       title: contest.title,
+      description: contest.description,
       startTime: contest.startTime,
       endTime: contest.endTime,
       duration: contest.duration,
       settings: contest.settings,
     },
-    problems: contest.problems,
+    problems: problemsWithStatus,
     member: member
   };
 }
@@ -723,6 +741,9 @@ export async function startContestTimer(contestId: string): Promise<{ success: b
     });
 
     if (!member) throw new Error("Not a member");
+    if (member.role === "OWNER" || member.role === "MODERATOR") {
+      throw new Error("Contest creators and moderators cannot participate in the contest.");
+    }
     if (member.startedAt) return { success: true }; // Already started
 
     await prisma.contestMember.update({
@@ -777,6 +798,21 @@ export async function getProblemForArenaServer(contestId: string, problemId: str
     throw new Error("Contest not started or unauthorized");
   }
 
+  if (member.role === "OWNER" || member.role === "MODERATOR") {
+    throw new Error("Contest creators and moderators cannot enter the participant arena.");
+  }
+
+  // Calculate time remaining and verify not expired
+  const now = new Date();
+  const startedAt = new Date(member.startedAt);
+  const timeBasedOnDuration = new Date(startedAt.getTime() + member.contest.duration * 60000);
+  const globalEndTime = new Date(member.contest.endTime);
+  const userEndTime = timeBasedOnDuration < globalEndTime ? timeBasedOnDuration : globalEndTime;
+
+  if ((member as any).completedAt || now > userEndTime) {
+    throw new Error("Contest has ended");
+  }
+
   const problemData = await prisma.problem.findUnique({
     where: { id: problemId },
     include: {
@@ -800,16 +836,30 @@ export async function getProblemForArenaServer(contestId: string, problemId: str
   const allProblemsRaw = await prisma.contestProblem.findMany({
     where: { contestId },
     orderBy: { order: "asc" },
-    include: { problem: { select: { id: true, title: true } } }
+    include: { 
+      problem: { 
+        select: { 
+          id: true, 
+          title: true,
+          submissions: {
+            where: { userId, contestId },
+            select: { verdict: true }
+          }
+        } 
+      } 
+    }
   });
   
-  const allProblems = allProblemsRaw.map(cp => ({ id: cp.problem.id, title: cp.problem.title }));
-
-  // Calculate time remaining
-  const startedAt = new Date(member.startedAt);
-  const timeBasedOnDuration = new Date(startedAt.getTime() + member.contest.duration * 60000);
-  const globalEndTime = new Date(member.contest.endTime);
-  const userEndTime = timeBasedOnDuration < globalEndTime ? timeBasedOnDuration : globalEndTime;
+  const allProblems = allProblemsRaw.map(cp => {
+    const isSolved = cp.problem.submissions.some(s => s.verdict === "ACCEPTED");
+    const isAttempted = cp.problem.submissions.length > 0;
+    return { 
+      id: cp.problem.id, 
+      title: cp.problem.title,
+      points: cp.points,
+      status: isSolved ? "ACCEPTED" : isAttempted ? "ATTEMPTED" : "NOT_ATTEMPTED"
+    };
+  });
 
   return {
     problem: {
@@ -823,6 +873,7 @@ export async function getProblemForArenaServer(contestId: string, problemId: str
         verdict: s.verdict,
         executionTime: s.executionTime,
         memoryUsed: s.memoryUsed,
+        sourceCode: s.sourceCode,
         languageName: s.language.name,
         createdAt: s.submittedAt
       }))
@@ -840,6 +891,7 @@ export async function getContestResultsServer(contestId: string) {
   const contest = await prisma.contest.findUnique({
     where: { id: contestId },
     include: {
+      settings: true,
       problems: {
         orderBy: { order: "asc" },
         include: {
@@ -848,14 +900,23 @@ export async function getContestResultsServer(contestId: string) {
           }
         }
       },
-      members: true
+      members: {
+        include: {
+          user: {
+            select: { id: true, name: true, email: true, image: true }
+          }
+        }
+      }
     }
   });
 
   if (!contest) throw new Error("Contest not found");
 
   const member = contest.members.find(m => m.userId === userId);
-  if (!member) throw new Error("Not a member");
+  const isAdmin = session.isSuperAdmin || session.permissions.includes("RBAC_CONTESTS");
+  if (!member && !isAdmin && !contest.settings?.isPublic) {
+    throw new Error("Not a member of this contest");
+  }
 
   const allSubmissions = await prisma.submission.findMany({
     where: { contestId },
@@ -867,19 +928,24 @@ export async function getContestResultsServer(contestId: string) {
       verdict: true,
       executionTime: true,
       memoryUsed: true,
+      sourceCode: true,
       submittedAt: true,
-      status: true
+      status: true,
+      language: {
+        select: { name: true, slug: true }
+      }
     }
   });
 
-  // Calculate scores for all members
-  const memberStats = contest.members.map(m => {
+  // Calculate scores and problem matrices for PARTICIPANT members only
+  const participantMembers = contest.members.filter(m => m.role === "PARTICIPANT");
+  const memberStats = participantMembers.map(m => {
     let score = 0;
     let penalty = 0;
     let solvedCount = 0;
     const mSubs = allSubmissions.filter(s => s.userId === m.userId);
 
-    contest.problems.forEach(cp => {
+    const problemResults = contest.problems.map(cp => {
       const pSubs = mSubs.filter(s => s.problemId === cp.problemId);
       
       let wrongAttempts = 0;
@@ -895,27 +961,57 @@ export async function getContestResultsServer(contestId: string) {
         }
       }
 
+      let solved = false;
+      let timeMins = 0;
+      let points = 0;
+
       if (firstAccepted) {
+        solved = true;
+        points = cp.points;
         score += cp.points;
         solvedCount++;
-        // Penalty: minutes from start to first accepted + 20 mins per wrong attempt
         const startTime = m.startedAt ? new Date(m.startedAt) : new Date(contest.startTime);
-        const timeElapsedMins = Math.max(0, Math.floor((new Date(firstAccepted.submittedAt).getTime() - startTime.getTime()) / 60000));
-        penalty += timeElapsedMins + (wrongAttempts * 20);
+        timeMins = Math.max(0, Math.floor((new Date(firstAccepted.submittedAt).getTime() - startTime.getTime()) / 60000));
+        penalty += timeMins + (wrongAttempts * 20);
       }
+
+      return {
+        problemId: cp.problemId,
+        solved,
+        points,
+        timeMins,
+        wrongAttempts: firstAccepted ? wrongAttempts : pSubs.length
+      };
     });
 
-    return { userId: m.userId, score, penalty, solvedCount };
+    return { 
+      userId: m.userId, 
+      name: m.user.name || m.user.email.split("@")[0],
+      email: m.user.email,
+      image: m.user.image,
+      score, 
+      penalty, 
+      solvedCount,
+      problemResults,
+      startedAt: m.startedAt,
+      completedAt: (m as any).completedAt
+    };
   });
 
-  // Rank members
+  // Rank members (ICPC rules: higher score first, then lower penalty)
   memberStats.sort((a, b) => {
     if (a.score !== b.score) return b.score - a.score;
     return a.penalty - b.penalty;
   });
 
-  const currentUserStats = memberStats.find(s => s.userId === userId);
-  const rank = memberStats.findIndex(s => s.userId === userId) + 1;
+  const rankedLeaderboard = memberStats.map((entry, index) => ({
+    ...entry,
+    rank: index + 1
+  }));
+
+  const isOrganizer = member ? (member.role === "OWNER" || member.role === "MODERATOR") : isAdmin;
+  const currentUserStats = rankedLeaderboard.find(s => s.userId === userId);
+  const rank = currentUserStats?.rank || 0;
 
   // Build user's specific problem breakdown
   const userSubmissions = allSubmissions.filter(s => s.userId === userId);
@@ -942,16 +1038,61 @@ export async function getContestResultsServer(contestId: string) {
     };
   });
 
+  // Overall Contest Analytics
+  const totalSubmissionsCount = allSubmissions.length;
+  const userTotalSubmissions = userSubmissions.length;
+  const userAcceptedSubmissions = userSubmissions.filter(s => s.verdict === "ACCEPTED").length;
+  const userAccuracy = userTotalSubmissions > 0 
+    ? Math.round((userAcceptedSubmissions / userTotalSubmissions) * 100) 
+    : 0;
+
+  const problemAnalytics = contest.problems.map(cp => {
+    const pSubs = allSubmissions.filter(s => s.problemId === cp.problemId);
+    const uniqueSolvers = new Set(pSubs.filter(s => s.verdict === "ACCEPTED").map(s => s.userId)).size;
+    const totalParticipants = participantMembers.length;
+    const solveRate = totalParticipants > 0 ? Math.round((uniqueSolvers / totalParticipants) * 100) : 0;
+    return {
+      problemId: cp.problemId,
+      title: cp.problem.title,
+      difficulty: cp.problem.difficulty,
+      points: cp.points,
+      totalSubmissions: pSubs.length,
+      acceptedCount: uniqueSolvers,
+      solveRate
+    };
+  });
+
+  // Time spent
+  let totalMinutesSpent = 0;
+  if (member?.startedAt) {
+    const start = new Date(member.startedAt).getTime();
+    const end = (member as any).completedAt 
+      ? new Date((member as any).completedAt).getTime() 
+      : new Date().getTime();
+    totalMinutesSpent = Math.max(0, Math.round((end - start) / 60000));
+  }
+
   return {
     contestId: contest.id,
     title: contest.title,
+    duration: contest.duration,
     stats: {
       score: currentUserStats?.score || 0,
-      rank: rank > 0 ? rank : '-',
+      totalPossibleScore: contest.problems.reduce((acc, p) => acc + p.points, 0),
+      rank: rank,
+      totalParticipants: participantMembers.length,
       solved: currentUserStats?.solvedCount || 0,
       total: contest.problems.length,
-      penalty: currentUserStats?.penalty || 0
+      penalty: currentUserStats?.penalty || 0,
+      accuracy: userAccuracy,
+      minutesSpent: totalMinutesSpent,
+      isOrganizer
     },
-    problems: problemBreakdown
+    problems: problemBreakdown,
+    leaderboard: rankedLeaderboard,
+    analytics: {
+      totalSubmissions: totalSubmissionsCount,
+      problemAnalytics
+    }
   };
 }
