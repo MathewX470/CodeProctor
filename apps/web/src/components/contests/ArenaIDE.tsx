@@ -99,6 +99,17 @@ export function ArenaIDE({ problem, contestId, userEndTime, allProblems }: Arena
   
   // Results State
   const [submissionResult, setSubmissionResult] = useState<any>(null);
+  const pollRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  // Clean up polling interval on unmount
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    };
+  }, []);
   
   // Timer State
   const [timeLeft, setTimeLeft] = useState<number>(0);
@@ -196,6 +207,11 @@ export function ArenaIDE({ problem, contestId, userEndTime, allProblems }: Arena
     setBottomTab("result");
     setSubmissionResult({ status: "QUEUED" });
     
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+
     try {
       const res = await fetch("/api/submissions", {
         method: "POST",
@@ -216,9 +232,20 @@ export function ArenaIDE({ problem, contestId, userEndTime, allProblems }: Arena
       }
 
       const { submissionId } = await res.json();
+      let pollAttempts = 0;
 
-      // Poll submission status
+      // Poll submission status with ref and timeout
       const poll = setInterval(async () => {
+        pollAttempts++;
+        if (pollAttempts > 45) {
+          clearInterval(poll);
+          pollRef.current = null;
+          if (actionType === "RUN") setIsRunning(false);
+          else setIsSubmitting(false);
+          toast.error("Execution timed out. Please check your submissions history.");
+          return;
+        }
+
         try {
           const pollRes = await fetch(`/api/submissions/${submissionId}`);
           if (!pollRes.ok) return;
@@ -228,6 +255,7 @@ export function ArenaIDE({ problem, contestId, userEndTime, allProblems }: Arena
 
           if (data.status === "COMPLETED" || data.status === "FINISHED") {
             clearInterval(poll);
+            pollRef.current = null;
             if (actionType === "RUN") setIsRunning(false);
             else setIsSubmitting(false);
             
@@ -258,6 +286,8 @@ export function ArenaIDE({ problem, contestId, userEndTime, allProblems }: Arena
           console.error("Polling error", e);
         }
       }, 1000);
+
+      pollRef.current = poll;
     } catch (e: any) {
       toast.error(e.message || "Network error while submitting code.");
       if (actionType === "RUN") setIsRunning(false);
@@ -331,8 +361,28 @@ export function ArenaIDE({ problem, contestId, userEndTime, allProblems }: Arena
               <ChevronLeft className="w-4 h-4" />
             </Link>
             
-            <div className="px-3 py-1 font-bold text-slate-900 dark:text-white flex items-center gap-2 text-xs sm:text-sm border-x border-slate-200 dark:border-zinc-800">
-              <span>{currentIndex + 1}. {problem.title}</span>
+            <div className="relative flex items-center">
+              <select 
+                value={problem.id}
+                onChange={(e) => {
+                  const targetId = e.target.value;
+                  if (targetId && targetId !== problem.id) {
+                    router.push(`/contests/${contestId}/problems/${targetId}`);
+                  }
+                }}
+                className="appearance-none bg-transparent hover:bg-slate-100 dark:hover:bg-zinc-900 px-3 py-1 font-bold text-slate-900 dark:text-white text-xs sm:text-sm border-x border-slate-200 dark:border-zinc-800 cursor-pointer outline-none pr-7 transition-colors max-w-[200px] sm:max-w-xs truncate"
+                title="Select Problem"
+              >
+                {allProblems?.map((p, idx) => {
+                  const label = `${idx + 1}. ${p.title}${p.status === "ACCEPTED" ? " (✓ Solved)" : p.status === "ATTEMPTED" ? " (⚡ Attempted)" : ""}`;
+                  return (
+                    <option key={p.id} value={p.id} className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-white font-normal">
+                      {label}
+                    </option>
+                  );
+                })}
+              </select>
+              <ChevronDown className="w-3.5 h-3.5 absolute right-2 pointer-events-none text-slate-400" />
             </div>
 
             <Link 

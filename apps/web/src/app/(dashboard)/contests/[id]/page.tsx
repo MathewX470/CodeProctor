@@ -19,6 +19,11 @@ export default async function ContestArenaDashboard(props: { params: Promise<{ i
     redirect("/login");
   }
 
+  const isAdmin = session.isSuperAdmin || session.permissions.includes("RBAC_CONTESTS");
+  if (isAdmin) {
+    redirect(`/contests/${params.id}/manage`);
+  }
+
   let data;
   try {
     data = await getArenaDataServer(params.id);
@@ -46,7 +51,8 @@ export default async function ContestArenaDashboard(props: { params: Promise<{ i
   }
 
   const isUserTimeUp = userEndTime ? now > userEndTime : false;
-  const isCompleted = !!(member as any).completedAt || isUserTimeUp || (hasStarted && isEndedGlobal);
+  // If contest globally ended or member submitted/timed out, show results dashboard
+  const isCompleted = !!(member as any).completedAt || isUserTimeUp || isEndedGlobal;
 
   const totalPoints = problems.reduce((acc: number, p: any) => acc + (p.points || 100), 0);
 

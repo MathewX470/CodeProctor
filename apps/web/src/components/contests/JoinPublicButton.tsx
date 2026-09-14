@@ -21,11 +21,10 @@ export function JoinPublicButton({
   const handleJoin = async () => {
     setIsJoining(true);
     const res = await joinPublicContest(contestId);
-    if (res.success) {
-      toast.success("Successfully joined the contest!");
-      router.push(`/contests/${res.contestId}`);
+    if (res.success || res.error?.includes("already a member")) {
+      router.push(`/contests/${contestId}`);
     } else {
-      toast.error(res.error || "Failed to join contest.");
+      toast.error(res.error || "Failed to access contest.");
       setIsJoining(false);
     }
   };
@@ -33,10 +32,11 @@ export function JoinPublicButton({
   if (isEnded) {
     return (
       <button 
-        disabled 
-        className="flex-1 text-center py-2 bg-slate-200 dark:bg-zinc-800 text-slate-500 dark:text-zinc-500 rounded-lg text-sm font-medium cursor-not-allowed border border-slate-300 dark:border-zinc-700"
+        onClick={handleJoin}
+        disabled={isJoining}
+        className="w-full text-center py-2 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 border border-slate-200 dark:border-zinc-700 disabled:opacity-70"
       >
-        Contest Ended
+        {isJoining ? <Loader2 className="w-4 h-4 animate-spin" /> : "View Standings & Results"}
       </button>
     );
   }

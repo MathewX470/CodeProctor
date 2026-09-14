@@ -25,6 +25,7 @@ export async function GET(
       where: { id },
       include: {
         language: true,
+        executionLogs: true,
         testCaseResults: {
           include: {
             testCase: {
@@ -36,7 +37,7 @@ export async function GET(
             }
           },
           orderBy: {
-            testCaseId: 'asc' // or any other order
+            testCaseId: 'asc'
           }
         }
       }
@@ -67,6 +68,11 @@ export async function GET(
         isHidden
       };
     });
+
+    // Extract compile or runtime error message if present
+    const compileLog = submission.executionLogs?.find(l => l.stage === "compile");
+    const runtimeLog = submission.executionLogs?.find(l => l.stage === "run");
+    const errorMessage = compileLog?.message || runtimeLog?.message || (submission.verdict === "COMPILATION_ERROR" ? "Compilation failed." : null);
     
     // 5. Return status
     return NextResponse.json({
@@ -79,7 +85,8 @@ export async function GET(
       sourceCode: submission.sourceCode,
       languageId: submission.languageId,
       languageName: submission.language.name,
-      testCases: sanitizedResults
+      testCases: sanitizedResults,
+      error: errorMessage
     });
     
   } catch (error) {

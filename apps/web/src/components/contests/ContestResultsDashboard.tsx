@@ -118,6 +118,13 @@ export function ContestResultsDashboard({ results, currentUserId, isOrganizer }:
         </div>
       );
     }
+    if (rank <= 0) {
+      return (
+        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 font-bold text-sm">
+          Unranked
+        </div>
+      );
+    }
     return (
       <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-bold text-sm">
         Rank #{rank}
@@ -268,7 +275,7 @@ export function ContestResultsDashboard({ results, currentUserId, isOrganizer }:
                   Rank
                 </div>
                 <div className="text-2xl font-black text-slate-900 dark:text-white">
-                  #{stats.rank}
+                  {stats.rank > 0 ? `#${stats.rank}` : "-"}
                 </div>
               </div>
 

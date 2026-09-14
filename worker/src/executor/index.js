@@ -57,6 +57,19 @@ export async function executeSubmission(jobData) {
     const compileResult = await compileContainer(langConfig.image, tmpDir, langConfig.compileCommand);
     
     if (!compileResult.success) {
+      if (compileResult.stderr) {
+        try {
+          await prisma.executionLog.create({
+            data: {
+              submissionId,
+              stage: 'compile',
+              message: compileResult.stderr.substring(0, 2000)
+            }
+          });
+        } catch (e) {
+          console.error("Failed to log compilation error", e);
+        }
+      }
       await updateSubmissionVerdict(submissionId, 'COMPILATION_ERROR', 0, 0);
       return;
     }
@@ -89,6 +102,19 @@ export async function executeSubmission(jobData) {
       
       if (!tcResult.success) {
          tcVerdict = tcResult.errorType;
+         if (tcResult.stderr) {
+           try {
+             await prisma.executionLog.create({
+               data: {
+                 submissionId,
+                 stage: 'run',
+                 message: tcResult.stderr.substring(0, 2000)
+               }
+             });
+           } catch (e) {
+             console.error("Failed to log runtime error", e);
+           }
+         }
       } else {
          const actualOut = tcResult.stdout.trim();
          const expectedOut = testCase.expectedOutput.trim();

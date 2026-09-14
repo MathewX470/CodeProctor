@@ -9,7 +9,14 @@ export default async function ArenaProblemPage(props: { params: Promise<{ id: st
   try {
     data = await getProblemForArenaServer(params.id, params.problemId);
   } catch (e: any) {
-    if (e.message.includes("Unauthorized") || e.message.includes("Contest not started") || e.message.includes("Not a member")) {
+    if (
+      e.message.includes("Unauthorized") || 
+      e.message.includes("Contest not started") || 
+      e.message.includes("Not a member") ||
+      e.message.includes("Contest creators") ||
+      e.message.includes("Contest has ended") ||
+      e.message.includes("Forbidden")
+    ) {
       redirect(`/contests/${params.id}`);
     }
     throw e;

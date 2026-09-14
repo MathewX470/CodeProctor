@@ -891,6 +891,7 @@ export async function getContestResultsServer(contestId: string) {
   const contest = await prisma.contest.findUnique({
     where: { id: contestId },
     include: {
+      settings: true,
       problems: {
         orderBy: { order: "asc" },
         include: {
@@ -912,7 +913,10 @@ export async function getContestResultsServer(contestId: string) {
   if (!contest) throw new Error("Contest not found");
 
   const member = contest.members.find(m => m.userId === userId);
-  if (!member) throw new Error("Not a member");
+  const isAdmin = session.isSuperAdmin || session.permissions.includes("RBAC_CONTESTS");
+  if (!member && !isAdmin && !contest.settings?.isPublic) {
+    throw new Error("Not a member of this contest");
+  }
 
   const allSubmissions = await prisma.submission.findMany({
     where: { contestId },
@@ -1005,7 +1009,7 @@ export async function getContestResultsServer(contestId: string) {
     rank: index + 1
   }));
 
-  const isOrganizer = member.role === "OWNER" || member.role === "MODERATOR";
+  const isOrganizer = member ? (member.role === "OWNER" || member.role === "MODERATOR") : isAdmin;
   const currentUserStats = rankedLeaderboard.find(s => s.userId === userId);
   const rank = currentUserStats?.rank || 0;
 
@@ -1060,7 +1064,7 @@ export async function getContestResultsServer(contestId: string) {
 
   // Time spent
   let totalMinutesSpent = 0;
-  if (member.startedAt) {
+  if (member?.startedAt) {
     const start = new Date(member.startedAt).getTime();
     const end = (member as any).completedAt 
       ? new Date((member as any).completedAt).getTime() 
