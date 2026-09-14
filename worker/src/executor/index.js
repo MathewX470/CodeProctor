@@ -81,6 +81,8 @@ export async function executeSubmission(jobData) {
     let aggregateVerdict = 'ACCEPTED';
     let maxExecutionTime = 0;
     let maxMemory = 0;
+    let firstFailedVerdict = null;
+    let passedTestCasesCount = 0;
     
     // 4. Run Test Cases Loop
     console.log(`[Executor sub-${submissionId}] 🧪 Running ${testCases.length} test cases...`);
@@ -123,6 +125,12 @@ export async function executeSubmission(jobData) {
          }
       }
 
+      if (tcVerdict === 'ACCEPTED') {
+         passedTestCasesCount++;
+      } else if (!firstFailedVerdict) {
+         firstFailedVerdict = tcVerdict;
+      }
+
       // Save SubmissionTestCase
       await prisma.submissionTestCase.upsert({
          where: {
@@ -146,12 +154,13 @@ export async function executeSubmission(jobData) {
            actualOutput: tcResult.stdout.substring(0, 500)
          }
       });
-      
-      // Fail Fast (if not ACCEPTED, stop running subsequent cases)
-      if (tcVerdict !== 'ACCEPTED') {
-         aggregateVerdict = tcVerdict;
-         break;
-      }
+    }
+
+    // Determine aggregate verdict: ACCEPTED only if 100% of cases passed
+    if (testCases.length > 0 && passedTestCasesCount === testCases.length) {
+      aggregateVerdict = 'ACCEPTED';
+    } else if (testCases.length > 0) {
+      aggregateVerdict = firstFailedVerdict || 'WRONG_ANSWER';
     }
     
     // 5. Finalize Submission Verdict

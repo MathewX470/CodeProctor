@@ -125,6 +125,15 @@ export function ContestLeaderboardTab({ leaderboard, problems }: ContestLeaderbo
                               {pr.timeMins}m
                             </div>
                           </div>
+                        ) : pr.partiallySolved ? (
+                          <div className="inline-block px-2 py-1 rounded bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50">
+                            <div className="text-xs font-bold text-amber-600 dark:text-amber-400 font-mono">
+                              +{pr.points}
+                            </div>
+                            <div className="text-[10px] text-amber-500 font-mono">
+                              {pr.passedCases !== undefined && pr.totalCases !== undefined ? `${pr.passedCases}/${pr.totalCases}` : `${pr.timeMins}m`}
+                            </div>
+                          </div>
                         ) : pr.wrongAttempts > 0 ? (
                           <div className="inline-block px-2 py-1 rounded bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50">
                             <div className="text-xs font-bold text-red-600 dark:text-red-400 font-mono">

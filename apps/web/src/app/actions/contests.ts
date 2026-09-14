@@ -675,9 +675,18 @@ export async function getArenaDataServer(contestId: string) {
               difficulty: true,
               timeLimit: true,
               memoryLimit: true,
+              _count: {
+                select: { testCases: true }
+              },
               submissions: {
                 where: { userId, contestId },
-                select: { id: true, verdict: true }
+                select: { 
+                  id: true, 
+                  verdict: true,
+                  testCaseResults: {
+                    select: { verdict: true }
+                  }
+                }
               }
             }
           }
@@ -699,18 +708,38 @@ export async function getArenaDataServer(contestId: string) {
     throw new Error("You are not a member of this contest");
   }
 
-  // Calculate problem statuses for current user
+  // Calculate problem statuses and partial points for current user
   const problemsWithStatus = contest.problems.map(cp => {
     const subs = cp.problem.submissions || [];
-    const isAccepted = subs.some(s => s.verdict === "ACCEPTED");
+    const totalCases = cp.problem._count?.testCases || 1;
+    
+    let maxPassed = 0;
+    for (const sub of subs) {
+      if (sub.verdict === "ACCEPTED") {
+        maxPassed = totalCases;
+        break;
+      }
+      const passed = sub.testCaseResults?.filter(tc => tc.verdict === "ACCEPTED").length || 0;
+      if (passed > maxPassed) maxPassed = passed;
+    }
+
+    const earnedPoints = totalCases > 0 ? Math.round((maxPassed / totalCases) * cp.points) : 0;
+    const isAccepted = earnedPoints === cp.points && cp.points > 0;
+    const isPartial = earnedPoints > 0 && !isAccepted;
     const hasAttempted = subs.length > 0;
-    const status: "ACCEPTED" | "ATTEMPTED" | "NOT_ATTEMPTED" = isAccepted 
+    
+    const status: "ACCEPTED" | "PARTIAL" | "ATTEMPTED" | "NOT_ATTEMPTED" = isAccepted 
       ? "ACCEPTED" 
+      : isPartial
+      ? "PARTIAL"
       : (hasAttempted ? "ATTEMPTED" : "NOT_ATTEMPTED");
 
     return {
       ...cp,
-      userStatus: status
+      userStatus: status,
+      earnedPoints,
+      passedCases: maxPassed,
+      totalCases
     };
   });
 
@@ -819,15 +848,30 @@ export async function getProblemForArenaServer(contestId: string, problemId: str
       problemTags: { include: { tag: true } },
       samples: { orderBy: { order: "asc" } },
       languageTemplates: true,
+      contestProblems: {
+        where: { contestId },
+        select: { points: true }
+      },
+      _count: {
+        select: { testCases: true }
+      },
       submissions: {
         where: { userId, contestId },
         orderBy: { submittedAt: "desc" },
-        include: { language: true }
+        include: { 
+          language: true,
+          testCaseResults: {
+            select: { verdict: true }
+          }
+        }
       }
     }
   });
 
   if (!problemData) throw new Error("Problem not found");
+
+  const currentProblemPoints = problemData.contestProblems?.[0]?.points || 100;
+  const totalProblemCases = problemData._count?.testCases || 1;
 
   const allLanguages = await prisma.language.findMany({
     where: { isActive: true }
@@ -841,9 +885,17 @@ export async function getProblemForArenaServer(contestId: string, problemId: str
         select: { 
           id: true, 
           title: true,
+          _count: {
+            select: { testCases: true }
+          },
           submissions: {
             where: { userId, contestId },
-            select: { verdict: true }
+            select: { 
+              verdict: true,
+              testCaseResults: {
+                select: { verdict: true }
+              }
+            }
           }
         } 
       } 
@@ -851,33 +903,65 @@ export async function getProblemForArenaServer(contestId: string, problemId: str
   });
   
   const allProblems = allProblemsRaw.map(cp => {
-    const isSolved = cp.problem.submissions.some(s => s.verdict === "ACCEPTED");
-    const isAttempted = cp.problem.submissions.length > 0;
+    const subs = cp.problem.submissions || [];
+    const tcTotal = cp.problem._count?.testCases || 1;
+    let maxPassed = 0;
+    for (const sub of subs) {
+      if (sub.verdict === "ACCEPTED") {
+        maxPassed = tcTotal;
+        break;
+      }
+      const passed = sub.testCaseResults?.filter(tc => tc.verdict === "ACCEPTED").length || 0;
+      if (passed > maxPassed) maxPassed = passed;
+    }
+
+    const earned = tcTotal > 0 ? Math.round((maxPassed / tcTotal) * cp.points) : 0;
+    const isSolved = earned === cp.points && cp.points > 0;
+    const isPartial = earned > 0 && !isSolved;
+    const isAttempted = subs.length > 0;
+
     return { 
       id: cp.problem.id, 
       title: cp.problem.title,
       points: cp.points,
-      status: isSolved ? "ACCEPTED" : isAttempted ? "ATTEMPTED" : "NOT_ATTEMPTED"
+      earnedPoints: earned,
+      passedCases: maxPassed,
+      totalCases: tcTotal,
+      status: isSolved ? "ACCEPTED" : (isPartial ? "PARTIAL" : (isAttempted ? "ATTEMPTED" : "NOT_ATTEMPTED"))
     };
   });
 
   return {
     problem: {
       ...problemData,
+      points: currentProblemPoints,
+      totalTestCases: totalProblemCases,
       templates: problemData.languageTemplates,
       tags: problemData.problemTags.map(pt => pt.tag.name),
       allLanguages,
-      submissions: problemData.submissions.map(s => ({
-        id: s.id,
-        status: s.status,
-        verdict: s.verdict,
-        executionTime: s.executionTime,
-        memoryUsed: s.memoryUsed,
-        sourceCode: s.sourceCode,
-        languageName: s.language.name,
-        createdAt: s.submittedAt
-      }))
+      submissions: problemData.submissions.map(s => {
+        const passedCases = s.verdict === "ACCEPTED" 
+          ? totalProblemCases 
+          : (s.testCaseResults?.filter(tc => tc.verdict === "ACCEPTED").length || 0);
+        const earned = totalProblemCases > 0 ? Math.round((passedCases / totalProblemCases) * currentProblemPoints) : 0;
+
+        return {
+          id: s.id,
+          status: s.status,
+          verdict: s.verdict,
+          executionTime: s.executionTime,
+          memoryUsed: s.memoryUsed,
+          sourceCode: s.sourceCode,
+          languageId: s.languageId,
+          languageName: s.language.name,
+          createdAt: s.submittedAt,
+          passedTestCases: passedCases,
+          totalTestCases: totalProblemCases,
+          earnedPoints: earned
+        };
+      })
     },
+    userId,
     allProblems,
     userEndTime: userEndTime.toISOString()
   };
@@ -896,7 +980,14 @@ export async function getContestResultsServer(contestId: string) {
         orderBy: { order: "asc" },
         include: {
           problem: {
-            select: { id: true, title: true, difficulty: true }
+            select: { 
+              id: true, 
+              title: true, 
+              difficulty: true,
+              _count: {
+                select: { testCases: true }
+              }
+            }
           }
         }
       },
@@ -933,6 +1024,9 @@ export async function getContestResultsServer(contestId: string) {
       status: true,
       language: {
         select: { name: true, slug: true }
+      },
+      testCaseResults: {
+        select: { verdict: true }
       }
     }
   });
@@ -947,40 +1041,64 @@ export async function getContestResultsServer(contestId: string) {
 
     const problemResults = contest.problems.map(cp => {
       const pSubs = mSubs.filter(s => s.problemId === cp.problemId);
+      const totalCases = cp.problem._count?.testCases || 1;
       
+      let maxPointsEarned = 0;
+      let maxPassedCases = 0;
+      let bestSubmission: any = null;
       let wrongAttempts = 0;
-      let firstAccepted: any = null;
+      let firstFullSolve: any = null;
 
       for (const sub of pSubs) {
-        if (sub.verdict === "ACCEPTED") {
-          firstAccepted = sub;
-          break;
+        const passedCases = sub.verdict === "ACCEPTED" 
+          ? totalCases 
+          : (sub.testCaseResults?.filter(tc => tc.verdict === "ACCEPTED").length || 0);
+        
+        const subPoints = totalCases > 0 ? Math.round((passedCases / totalCases) * cp.points) : 0;
+
+        if (subPoints > maxPointsEarned) {
+          maxPointsEarned = subPoints;
+          maxPassedCases = passedCases;
+          bestSubmission = sub;
         }
-        if (sub.verdict && sub.verdict !== "COMPILATION_ERROR") {
-          wrongAttempts++;
+
+        if (sub.verdict === "ACCEPTED" && !firstFullSolve) {
+          firstFullSolve = sub;
+        }
+
+        if (sub.verdict !== "ACCEPTED" && sub.verdict !== "COMPILATION_ERROR") {
+          if (!firstFullSolve) {
+            wrongAttempts++;
+          }
         }
       }
 
-      let solved = false;
+      const solved = maxPointsEarned === cp.points && cp.points > 0;
+      const partiallySolved = maxPointsEarned > 0 && !solved;
       let timeMins = 0;
-      let points = 0;
 
-      if (firstAccepted) {
-        solved = true;
-        points = cp.points;
-        score += cp.points;
-        solvedCount++;
-        const startTime = m.startedAt ? new Date(m.startedAt) : new Date(contest.startTime);
-        timeMins = Math.max(0, Math.floor((new Date(firstAccepted.submittedAt).getTime() - startTime.getTime()) / 60000));
-        penalty += timeMins + (wrongAttempts * 20);
+      if (maxPointsEarned > 0) {
+        score += maxPointsEarned;
+        if (solved) solvedCount++;
+
+        const targetSub = firstFullSolve || bestSubmission;
+        if (targetSub) {
+          const startTime = m.startedAt ? new Date(m.startedAt) : new Date(contest.startTime);
+          timeMins = Math.max(0, Math.floor((new Date(targetSub.submittedAt).getTime() - startTime.getTime()) / 60000));
+          penalty += timeMins + (solved ? (wrongAttempts * 20) : 0);
+        }
       }
 
       return {
         problemId: cp.problemId,
         solved,
-        points,
+        partiallySolved,
+        points: maxPointsEarned,
+        maxPoints: cp.points,
+        passedCases: maxPassedCases,
+        totalCases,
         timeMins,
-        wrongAttempts: firstAccepted ? wrongAttempts : pSubs.length
+        wrongAttempts: solved ? wrongAttempts : pSubs.length
       };
     });
 
@@ -998,7 +1116,7 @@ export async function getContestResultsServer(contestId: string) {
     };
   });
 
-  // Rank members (ICPC rules: higher score first, then lower penalty)
+  // Rank members (higher score first, then lower penalty)
   memberStats.sort((a, b) => {
     if (a.score !== b.score) return b.score - a.score;
     return a.penalty - b.penalty;
@@ -1013,26 +1131,49 @@ export async function getContestResultsServer(contestId: string) {
   const currentUserStats = rankedLeaderboard.find(s => s.userId === userId);
   const rank = currentUserStats?.rank || 0;
 
-  // Build user's specific problem breakdown
+  // Build user's specific problem breakdown with partial score details
   const userSubmissions = allSubmissions.filter(s => s.userId === userId);
   const problemBreakdown = contest.problems.map(cp => {
     const subs = userSubmissions.filter(s => s.problemId === cp.problemId);
-    // Sort submissions descending for history view
-    const sortedSubs = [...subs].sort((a, b) => b.submittedAt.getTime() - a.submittedAt.getTime());
+    const totalCases = cp.problem._count?.testCases || 1;
+
+    const enrichedSubs = subs.map(s => {
+      const passedCases = s.verdict === "ACCEPTED" 
+        ? totalCases 
+        : (s.testCaseResults?.filter(tc => tc.verdict === "ACCEPTED").length || 0);
+      const earned = totalCases > 0 ? Math.round((passedCases / totalCases) * cp.points) : 0;
+      return {
+        ...s,
+        passedTestCases: passedCases,
+        totalTestCases: totalCases,
+        earnedPoints: earned
+      };
+    });
+
+    const sortedSubs = [...enrichedSubs].sort((a, b) => b.submittedAt.getTime() - a.submittedAt.getTime());
     
-    const accepted = subs.find(s => s.verdict === "ACCEPTED");
-    let bestSub = null;
-    if (accepted) {
-      bestSub = accepted;
-    } else if (subs.length > 0) {
-      bestSub = sortedSubs[0];
+    let bestSub: any = null;
+    let maxPts = -1;
+    for (const s of enrichedSubs) {
+      if (s.earnedPoints > maxPts) {
+        maxPts = s.earnedPoints;
+        bestSub = s;
+      }
     }
+
+    const earnedPoints = maxPts > -1 ? maxPts : 0;
+    const isSolved = earnedPoints === cp.points && cp.points > 0;
+    const isPartial = earnedPoints > 0 && !isSolved;
 
     return {
       id: cp.problem.id,
       title: cp.problem.title,
       difficulty: cp.problem.difficulty,
       points: cp.points,
+      earnedPoints,
+      totalTestCases: totalCases,
+      passedTestCases: bestSub?.passedTestCases || 0,
+      status: isSolved ? "ACCEPTED" : (isPartial ? "PARTIAL" : (subs.length > 0 ? "ATTEMPTED" : "NOT_ATTEMPTED")),
       bestSubmission: bestSub,
       history: sortedSubs
     };

@@ -29,6 +29,8 @@ type ProblemData = {
   difficulty: string;
   timeLimit: number;
   memoryLimit: number;
+  points?: number;
+  totalTestCases?: number;
   tags: string[];
   samples: { input: string; expectedOutput: string; explanation?: string | null }[];
   templates: { languageId: string; boilerplate: string }[];
@@ -39,9 +41,13 @@ type ProblemData = {
     verdict: string | null;
     executionTime: number | null;
     memoryUsed: number | null;
+    languageId?: string;
     sourceCode?: string;
     languageName?: string;
     createdAt: string | Date;
+    passedTestCases?: number;
+    totalTestCases?: number;
+    earnedPoints?: number;
   }[];
 };
 
@@ -49,36 +55,56 @@ interface ArenaIDEProps {
   problem: ProblemData;
   contestId: string;
   userEndTime: string;
+  userId?: string;
   allProblems: {
     id: string;
     title: string;
     points?: number;
+    earnedPoints?: number;
+    passedCases?: number;
+    totalCases?: number;
     status?: string;
   }[];
 }
 
-export function ArenaIDE({ problem, contestId, userEndTime, allProblems }: ArenaIDEProps) {
+export function ArenaIDE({ problem, contestId, userEndTime, allProblems, userId }: ArenaIDEProps) {
   const { resolvedTheme } = useTheme();
   const router = useRouter();
   
-  // LocalStorage Auto-save Key
-  const storageKey = `code-contest-${contestId}-problem-${problem.id}`;
+  // LocalStorage Auto-save Key - strictly scoped by userId so different accounts on the same machine never share code
+  const storageKey = userId 
+    ? `code-user-${userId}-contest-${contestId}-problem-${problem.id}` 
+    : `code-contest-${contestId}-problem-${problem.id}`;
 
   const [selectedLang, setSelectedLang] = useState<string>(
     problem.templates.length > 0 ? problem.templates[0].languageId : (problem.allLanguages[0]?.id || "")
   );
   
   const [codeMap, setCodeMap] = useState<Record<string, string>>(() => {
+    // 1. Try restoring from user-scoped localStorage
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem(storageKey);
       if (saved) {
         try { return JSON.parse(saved); } catch (e) {}
       }
     }
+
+    // 2. Initialize default boilerplate for all supported languages
     const initialMap: Record<string, string> = {};
     problem.templates.forEach(t => {
       initialMap[t.languageId] = t.boilerplate;
     });
+
+    // 3. If this user has previous submissions in this contest, prefill with their latest submitted code
+    if (problem.submissions && problem.submissions.length > 0) {
+      const reversed = [...problem.submissions].reverse();
+      reversed.forEach(sub => {
+        if (sub.languageId && sub.sourceCode) {
+          initialMap[sub.languageId] = sub.sourceCode;
+        }
+      });
+    }
+
     return initialMap;
   });
 
@@ -259,10 +285,17 @@ export function ArenaIDE({ problem, contestId, userEndTime, allProblems }: Arena
             if (actionType === "RUN") setIsRunning(false);
             else setIsSubmitting(false);
             
+            const passedCases = data.testCases?.filter((tc: any) => tc.verdict === "ACCEPTED").length || 0;
+            const totalCases = data.testCases?.length || (problem.totalTestCases || 1);
+            const probPoints = problem.points || 100;
+            const earnedPts = totalCases > 0 ? Math.round((passedCases / totalCases) * probPoints) : 0;
+
             if (data.verdict === "ACCEPTED") {
-              toast.success(actionType === "SUBMIT" ? "Official Submission: Accepted! (+Points)" : "Sample Cases Passed!");
+              toast.success(actionType === "SUBMIT" ? `Official Submission: Accepted! Full points awarded (+${probPoints} pts)` : "Sample Cases Passed!");
+            } else if (passedCases > 0 && actionType === "SUBMIT") {
+              toast.info(`Partial Score: ${passedCases}/${totalCases} test cases passed (+${earnedPts} pts)`);
             } else {
-              toast.error(`${data.verdict}`);
+              toast.error(`${data.verdict} (0/${totalCases} passed)`);
             }
 
             // If official submit, append to submissions tab
@@ -276,7 +309,10 @@ export function ArenaIDE({ problem, contestId, userEndTime, allProblems }: Arena
                   memoryUsed: data.memoryUsed,
                   sourceCode: currentCode,
                   languageName: currentLangObj?.name,
-                  createdAt: new Date().toISOString()
+                  createdAt: new Date().toISOString(),
+                  passedTestCases: passedCases,
+                  totalTestCases: totalCases,
+                  earnedPoints: earnedPts
                 },
                 ...prev
               ]);
@@ -374,7 +410,15 @@ export function ArenaIDE({ problem, contestId, userEndTime, allProblems }: Arena
                 title="Select Problem"
               >
                 {allProblems?.map((p, idx) => {
-                  const label = `${idx + 1}. ${p.title}${p.status === "ACCEPTED" ? " (✓ Solved)" : p.status === "ATTEMPTED" ? " (⚡ Attempted)" : ""}`;
+                  const label = `${idx + 1}. ${p.title}${
+                    p.status === "ACCEPTED" 
+                      ? " (✓ Solved)" 
+                      : p.status === "PARTIAL" 
+                      ? ` (${p.earnedPoints || 0}/${p.points || 0} pts)` 
+                      : p.status === "ATTEMPTED" 
+                      ? " (⚡ Attempted)" 
+                      : ""
+                  }`;
                   return (
                     <option key={p.id} value={p.id} className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-white font-normal">
                       {label}
@@ -594,12 +638,23 @@ export function ArenaIDE({ problem, contestId, userEndTime, allProblems }: Arena
                           className="p-4 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-2xl space-y-2"
                         >
                           <div className="flex items-center justify-between">
-                            <span className={`text-xs font-bold flex items-center gap-1.5 ${
-                              sub.verdict === "ACCEPTED" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-                            }`}>
-                              {sub.verdict === "ACCEPTED" ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-                              {sub.verdict}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-xs font-bold flex items-center gap-1.5 ${
+                                sub.verdict === "ACCEPTED" 
+                                  ? "text-green-600 dark:text-green-400" 
+                                  : (sub.earnedPoints && sub.earnedPoints > 0)
+                                  ? "text-amber-600 dark:text-amber-400"
+                                  : "text-red-600 dark:text-red-400"
+                              }`}>
+                                {sub.verdict === "ACCEPTED" ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+                                {sub.verdict === "ACCEPTED" ? "ACCEPTED" : (sub.earnedPoints && sub.earnedPoints > 0 ? "PARTIAL PASS" : sub.verdict)}
+                              </span>
+                              {sub.passedTestCases !== undefined && sub.totalTestCases !== undefined && (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300">
+                                  {sub.passedTestCases}/{sub.totalTestCases} Cases • {sub.earnedPoints ?? 0} pts
+                                </span>
+                              )}
+                            </div>
                             <span className="text-[10px] font-mono text-slate-400">
                               {new Date(sub.createdAt).toLocaleTimeString()}
                             </span>
@@ -791,29 +846,55 @@ export function ArenaIDE({ problem, contestId, userEndTime, allProblems }: Arena
                         ) : submissionResult ? (
                           <div className="space-y-4">
                             {/* Verdict Banner */}
-                            <div className="flex items-center justify-between p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800">
-                              <div className="flex items-center gap-3">
-                                {submissionResult.verdict === "ACCEPTED" ? (
-                                  <div className="w-8 h-8 rounded-xl bg-green-100 dark:bg-green-950/40 text-green-600 dark:text-green-400 flex items-center justify-center">
-                                    <CheckCircle2 className="w-5 h-5" />
-                                  </div>
-                                ) : (
-                                  <div className="w-8 h-8 rounded-xl bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400 flex items-center justify-center">
-                                    <XCircle className="w-5 h-5" />
-                                  </div>
-                                )}
-                                <div>
-                                  <h4 className={`font-black text-base ${
-                                    submissionResult.verdict === "ACCEPTED" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-                                  }`}>
-                                    {submissionResult.verdict}
-                                  </h4>
-                                  <div className="text-xs text-slate-400 font-mono">
-                                    {submissionResult.executionTime ? `${submissionResult.executionTime} ms` : "-"} • {submissionResult.memoryUsed ? `${submissionResult.memoryUsed} KB` : "-"}
+                            {(() => {
+                              const passedCount = submissionResult.testCases?.filter((tc: any) => tc.verdict === "ACCEPTED").length || 0;
+                              const totalCount = submissionResult.testCases?.length || (problem.totalTestCases || 1);
+                              const isFullAccepted = submissionResult.verdict === "ACCEPTED";
+                              const isPartial = passedCount > 0 && !isFullAccepted;
+                              const probPts = problem.points || 100;
+                              const earnedPts = totalCount > 0 ? Math.round((passedCount / totalCount) * probPts) : 0;
+
+                              return (
+                                <div className="flex items-center justify-between p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800">
+                                  <div className="flex items-center gap-3">
+                                    {isFullAccepted ? (
+                                      <div className="w-8 h-8 rounded-xl bg-green-100 dark:bg-green-950/40 text-green-600 dark:text-green-400 flex items-center justify-center">
+                                        <CheckCircle2 className="w-5 h-5" />
+                                      </div>
+                                    ) : isPartial ? (
+                                      <div className="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                                        <CheckCircle2 className="w-5 h-5" />
+                                      </div>
+                                    ) : (
+                                      <div className="w-8 h-8 rounded-xl bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400 flex items-center justify-center">
+                                        <XCircle className="w-5 h-5" />
+                                      </div>
+                                    )}
+                                    <div>
+                                      <h4 className={`font-black text-base flex flex-wrap items-center gap-2 ${
+                                        isFullAccepted 
+                                          ? "text-green-600 dark:text-green-400" 
+                                          : isPartial 
+                                          ? "text-amber-600 dark:text-amber-400" 
+                                          : "text-red-600 dark:text-red-400"
+                                      }`}>
+                                        <span>
+                                          {isFullAccepted ? "ACCEPTED" : isPartial ? "PARTIAL PASS" : submissionResult.verdict}
+                                        </span>
+                                        {totalCount > 0 && (
+                                          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300">
+                                            {passedCount}/{totalCount} Cases • {earnedPts}/{probPts} pts
+                                          </span>
+                                        )}
+                                      </h4>
+                                      <div className="text-xs text-slate-400 font-mono">
+                                        {submissionResult.executionTime ? `${submissionResult.executionTime} ms` : "-"} • {submissionResult.memoryUsed ? `${submissionResult.memoryUsed} KB` : "-"}
+                                      </div>
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            </div>
+                              );
+                            })()}
 
                             {/* Compilation Error Output */}
                             {submissionResult.verdict === "COMPILATION_ERROR" && submissionResult.error && (

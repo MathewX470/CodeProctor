@@ -24,7 +24,13 @@ export default async function ArenaProblemPage(props: { params: Promise<{ id: st
 
   return (
     <div className="h-[calc(100vh-64px)] w-full overflow-hidden">
-      <ArenaIDE problem={data.problem} contestId={params.id} userEndTime={data.userEndTime} allProblems={data.allProblems} />
+      <ArenaIDE 
+        problem={data.problem} 
+        contestId={params.id} 
+        userEndTime={data.userEndTime} 
+        allProblems={data.allProblems} 
+        userId={data.userId}
+      />
     </div>
   );
 }

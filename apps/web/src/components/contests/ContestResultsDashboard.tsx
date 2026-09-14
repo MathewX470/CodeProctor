@@ -16,6 +16,9 @@ interface SubmissionHistoryItem {
   sourceCode: string;
   submittedAt: Date | string;
   status: string;
+  passedTestCases?: number;
+  totalTestCases?: number;
+  earnedPoints?: number;
   language?: {
     name: string;
     slug?: string;
@@ -27,6 +30,10 @@ interface ProblemBreakdownItem {
   title: string;
   difficulty: string;
   points: number;
+  earnedPoints?: number;
+  totalTestCases?: number;
+  passedTestCases?: number;
+  status?: string;
   bestSubmission: SubmissionHistoryItem | null;
   history: SubmissionHistoryItem[];
 }
@@ -43,7 +50,11 @@ interface LeaderboardMember {
   problemResults: {
     problemId: string;
     solved: boolean;
+    partiallySolved?: boolean;
     points: number;
+    maxPoints?: number;
+    passedCases?: number;
+    totalCases?: number;
     timeMins: number;
     wrongAttempts: number;
   }[];
@@ -366,7 +377,9 @@ export function ContestResultsDashboard({ results, currentUserId, isOrganizer }:
       {activeTab === "problems" && (
         <div className="space-y-4">
           {results.problems.map((prob, idx) => {
-            const isAccepted = prob.bestSubmission?.verdict === "ACCEPTED";
+            const earnedPoints = prob.earnedPoints ?? (prob.bestSubmission?.verdict === "ACCEPTED" ? prob.points : 0);
+            const isAccepted = earnedPoints === prob.points && prob.points > 0;
+            const isPartial = earnedPoints > 0 && !isAccepted;
             const hasAttempts = prob.history.length > 0;
             const isExpanded = expandedProblemId === prob.id;
 
@@ -383,8 +396,10 @@ export function ContestResultsDashboard({ results, currentUserId, isOrganizer }:
                     <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-bold text-base shrink-0 ${
                       isAccepted 
                         ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" 
-                        : hasAttempts 
+                        : isPartial
                         ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                        : hasAttempts 
+                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
                         : "bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400"
                     }`}>
                       {idx + 1}
@@ -407,19 +422,26 @@ export function ContestResultsDashboard({ results, currentUserId, isOrganizer }:
                       <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs text-slate-500 dark:text-zinc-400">
                         <span className={`font-semibold flex items-center gap-1 ${
                           isAccepted ? "text-green-600 dark:text-green-400" :
-                          hasAttempts ? "text-amber-600 dark:text-amber-400" :
+                          isPartial ? "text-amber-600 dark:text-amber-400" :
+                          hasAttempts ? "text-blue-600 dark:text-blue-400" :
                           "text-slate-400"
                         }`}>
-                          {isAccepted ? <CheckCircle2 className="w-3.5 h-3.5" /> : hasAttempts ? <XCircle className="w-3.5 h-3.5" /> : null}
-                          {isAccepted ? "Solved" : hasAttempts ? `${prob.history.length} Attempt(s)` : "Unattempted"}
+                          {isAccepted ? <CheckCircle2 className="w-3.5 h-3.5" /> : null}
+                          {isAccepted 
+                            ? "Solved (Full Points)" 
+                            : isPartial 
+                            ? `Partial (${prob.passedTestCases || 0}/${prob.totalTestCases || 1} Cases Passed)` 
+                            : hasAttempts 
+                            ? `${prob.history.length} Attempt(s) (0 Points)` 
+                            : "Unattempted"}
                         </span>
 
-                        {isAccepted && prob.bestSubmission && (
+                        {prob.bestSubmission && (
                           <>
                             <span>•</span>
-                            <span>Best Runtime: <strong className="text-slate-700 dark:text-zinc-300 font-mono">{prob.bestSubmission.executionTime} ms</strong></span>
+                            <span>Best Runtime: <strong className="text-slate-700 dark:text-zinc-300 font-mono">{prob.bestSubmission.executionTime || 0} ms</strong></span>
                             <span>•</span>
-                            <span>Memory: <strong className="text-slate-700 dark:text-zinc-300 font-mono">{prob.bestSubmission.memoryUsed} KB</strong></span>
+                            <span>Memory: <strong className="text-slate-700 dark:text-zinc-300 font-mono">{prob.bestSubmission.memoryUsed || 0} KB</strong></span>
                           </>
                         )}
                       </div>
@@ -429,7 +451,7 @@ export function ContestResultsDashboard({ results, currentUserId, isOrganizer }:
                   <div className="flex items-center gap-6 self-end sm:self-center">
                     <div className="text-right">
                       <div className="text-base font-bold text-slate-900 dark:text-white">
-                        {isAccepted ? `+${prob.points}` : `0 / ${prob.points}`}
+                        {earnedPoints > 0 ? `${earnedPoints} / ${prob.points}` : `0 / ${prob.points}`}
                       </div>
                       <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
                         Points
@@ -464,15 +486,32 @@ export function ContestResultsDashboard({ results, currentUserId, isOrganizer }:
                               <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
                                 sub.verdict === "ACCEPTED" 
                                   ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400"
+                                  : (sub.earnedPoints && sub.earnedPoints > 0)
+                                  ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400"
                                   : "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400"
                               }`}>
                                 #{prob.history.length - sIdx}
                               </span>
 
                               <div>
-                                <span className={`font-semibold ${sub.verdict === "ACCEPTED" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                                  {sub.verdict === "ACCEPTED" ? "✓ Accepted" : `✗ ${sub.verdict}`}
+                                <span className={`font-semibold ${
+                                  sub.verdict === "ACCEPTED" 
+                                    ? "text-green-600 dark:text-green-400" 
+                                    : (sub.earnedPoints && sub.earnedPoints > 0)
+                                    ? "text-amber-600 dark:text-amber-400"
+                                    : "text-red-600 dark:text-red-400"
+                                }`}>
+                                  {sub.verdict === "ACCEPTED" 
+                                    ? "✓ Accepted (Full Points)" 
+                                    : (sub.earnedPoints && sub.earnedPoints > 0)
+                                    ? `⚡ Partial Pass (+${sub.earnedPoints} pts)` 
+                                    : `✗ ${sub.verdict}`}
                                 </span>
+                                {sub.passedTestCases !== undefined && sub.totalTestCases !== undefined && (
+                                  <span className="ml-2 text-xs font-mono text-slate-500 dark:text-zinc-400">
+                                    [{sub.passedTestCases}/{sub.totalTestCases} test cases]
+                                  </span>
+                                )}
                                 {sub.language?.name && (
                                   <span className="ml-2 text-xs text-slate-400 font-mono">({sub.language.name})</span>
                                 )}
@@ -589,6 +628,15 @@ export function ContestResultsDashboard({ results, currentUserId, isOrganizer }:
                               </div>
                               <div className="text-[10px] text-green-500 font-mono">
                                 {pr.timeMins}m
+                              </div>
+                            </div>
+                          ) : pr.partiallySolved ? (
+                            <div className="inline-block px-2 py-1 rounded bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50">
+                              <div className="text-xs font-bold text-amber-600 dark:text-amber-400 font-mono">
+                                +{pr.points}
+                              </div>
+                              <div className="text-[10px] text-amber-500 font-mono">
+                                {pr.passedCases !== undefined && pr.totalCases !== undefined ? `${pr.passedCases}/${pr.totalCases}` : `${pr.timeMins}m`}
                               </div>
                             </div>
                           ) : pr.wrongAttempts > 0 ? (
