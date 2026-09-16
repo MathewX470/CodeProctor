@@ -2,13 +2,14 @@ import React from "react";
 import { getArenaDataServer, getContestResultsServer } from "@/app/actions/contests";
 import { getSessionWithRoles } from "@/app/actions/auth";
 import { redirect } from "next/navigation";
-import { Clock, ShieldCheck, CheckCircle2, ChevronRight, AlertTriangle, Trophy, Code2 } from "lucide-react";
+import { Clock, ShieldCheck, CheckCircle2, ChevronRight, AlertTriangle, Trophy, Code2, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { ArenaStartButton } from "@/components/contests/ArenaStartButton";
 import { ArenaEndButton } from "@/components/contests/ArenaEndButton";
 import { ContestCountdownLobby } from "@/components/contests/ContestCountdownLobby";
 import { ContestResultsDashboard } from "@/components/contests/ContestResultsDashboard";
 import { ContestLiveTimer } from "@/components/contests/ContestLiveTimer";
+import { ContestProblemLink } from "@/components/contests/ContestProblemLink";
 
 export const dynamic = "force-dynamic";
 
@@ -51,8 +52,8 @@ export default async function ContestArenaDashboard(props: { params: Promise<{ i
   }
 
   const isUserTimeUp = userEndTime ? now > userEndTime : false;
-  // If contest globally ended or member submitted/timed out, show results dashboard
-  const isCompleted = !!(member as any).completedAt || isUserTimeUp || isEndedGlobal;
+  // If contest globally ended, member timed out, submitted, or got disqualified -> show results/disqualification dashboard
+  const isCompleted = !!(member as any).completedAt || isUserTimeUp || isEndedGlobal || member.isDisqualified;
 
   const totalPoints = problems.reduce((acc: number, p: any) => acc + (p.points || 100), 0);
 
@@ -184,7 +185,11 @@ export default async function ContestArenaDashboard(props: { params: Promise<{ i
             </ul>
           </div>
 
-          <ArenaStartButton contestId={contest.id} />
+          <ArenaStartButton 
+            contestId={contest.id} 
+            firstProblemId={problems[0]?.problem.id}
+            requireFullScreen={contest.settings?.proctoringMode === "FULL_SCREEN" || !!contest.settings?.requireFullScreen}
+          />
         </div>
       </div>
     );
@@ -225,6 +230,16 @@ export default async function ContestArenaDashboard(props: { params: Promise<{ i
           )}
         </div>
       </div>
+
+      {/* Strict Fullscreen Proctoring Notice */}
+      {contest.settings?.proctoringMode === "FULL_SCREEN" && (
+        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 rounded-2xl p-4 flex items-center gap-3 text-amber-800 dark:text-amber-300 text-xs font-semibold shadow-sm">
+          <ShieldAlert className="w-5 h-5 text-amber-500 shrink-0 animate-pulse" />
+          <div>
+            <span className="font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">Strict Fullscreen Proctoring Active:</span> Opening any problem locks your browser into fullscreen mode. Window changes and fullscreen exits are tracked and audited. Copying and pasting are blocked. The contest creator can review window changes and choose whether to disqualify candidates.
+          </div>
+        </div>
+      )}
 
       {/* Progress Ticker Card */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -285,10 +300,12 @@ export default async function ContestArenaDashboard(props: { params: Promise<{ i
             const isAttempted = cp.userStatus === "ATTEMPTED";
 
             return (
-              <Link 
+              <ContestProblemLink 
                 key={cp.id} 
-                href={`/contests/${contest.id}/problems/${cp.problem.id}`}
-                className="flex items-center justify-between p-6 hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition-colors group"
+                contestId={contest.id}
+                problemId={cp.problem.id}
+                requireFullScreen={contest.settings?.proctoringMode === "FULL_SCREEN" || !!contest.settings?.requireFullScreen}
+                className="flex items-center justify-between p-6 hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition-colors group cursor-pointer"
               >
                 <div className="flex items-center gap-5">
                   <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-bold text-base transition-colors ${
@@ -349,7 +366,7 @@ export default async function ContestArenaDashboard(props: { params: Promise<{ i
                     <ChevronRight className="w-4 h-4" />
                   </div>
                 </div>
-              </Link>
+              </ContestProblemLink>
             );
           })}
         </div>

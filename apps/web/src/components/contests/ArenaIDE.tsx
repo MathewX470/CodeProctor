@@ -8,13 +8,15 @@ import {
   Play, Send, Loader2, Code2, Clock, MemoryStick, Tag, 
   ChevronDown, ChevronLeft, ChevronRight, CheckCircle2, 
   XCircle, ArrowLeft, RotateCcw, FileText, History, 
-  AlertTriangle, Copy, Terminal, Check
+  AlertTriangle, Copy, Terminal, Check, ShieldAlert
 } from "lucide-react";
 import { toast } from "sonner";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { endContestServer } from "@/app/actions/contests";
+import { useStrictProctor } from "@/hooks/useStrictProctor";
+import { StrictProctorOverlay } from "./StrictProctorOverlay";
 
 const MDPreview = dynamic(
   () => import("@uiw/react-markdown-preview").then((mod) => mod.default),
@@ -56,6 +58,15 @@ interface ArenaIDEProps {
   contestId: string;
   userEndTime: string;
   userId?: string;
+  settings?: {
+    proctoringMode?: string;
+    requireFullScreen?: boolean;
+    detectTabSwitch?: boolean;
+    detectCopyPaste?: boolean;
+  } | null;
+  violationCount?: number;
+  isDisqualified?: boolean;
+  disqualifiedReason?: string | null;
   allProblems: {
     id: string;
     title: string;
@@ -67,9 +78,48 @@ interface ArenaIDEProps {
   }[];
 }
 
-export function ArenaIDE({ problem, contestId, userEndTime, allProblems, userId }: ArenaIDEProps) {
+export function ArenaIDE({ 
+  problem, 
+  contestId, 
+  userEndTime, 
+  allProblems, 
+  userId,
+  settings,
+  violationCount = 0,
+  isDisqualified: initialIsDisqualified = false,
+  disqualifiedReason: initialDisqualifiedReason = null
+}: ArenaIDEProps) {
   const { resolvedTheme } = useTheme();
   const router = useRouter();
+
+  // Strict Proctoring Integration
+  const isStrictProctor = settings?.proctoringMode === "FULL_SCREEN" || !!settings?.requireFullScreen;
+  const isFullScreenRequired = settings?.proctoringMode === "FULL_SCREEN" || !!settings?.requireFullScreen;
+  const isTabSwitchDetected = settings?.proctoringMode === "FULL_SCREEN" || !!settings?.detectTabSwitch;
+  const isCopyPasteBlocked = settings?.proctoringMode === "FULL_SCREEN" || !!settings?.detectCopyPaste;
+
+  const {
+    isFullscreen,
+    violationCount: proctorViolationCount,
+    isDisqualified,
+    disqualifiedReason,
+    activeViolation,
+    showWarningModal,
+    setShowWarningModal,
+    enterFullscreen
+  } = useStrictProctor({
+    contestId,
+    enabled: isStrictProctor,
+    requireFullScreen: isFullScreenRequired,
+    detectTabSwitch: isTabSwitchDetected,
+    detectCopyPaste: isCopyPasteBlocked,
+    initialViolations: violationCount,
+    isAlreadyDisqualified: initialIsDisqualified,
+    disqualifiedReason: initialDisqualifiedReason,
+    onDisqualified: (reason) => {
+      toast.error(reason || "You have been disqualified for integrity violations.", { duration: 5000 });
+    }
+  });
   
   // LocalStorage Auto-save Key - strictly scoped by userId so different accounts on the same machine never share code
   const storageKey = userId 
@@ -455,6 +505,18 @@ export function ArenaIDE({ problem, contestId, userEndTime, allProblems, userId 
             <span>{String(hours).padStart(2, "0")}:{String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}</span>
           </div>
 
+          {/* Strict Proctor Window Change Indicator */}
+          {isStrictProctor && (
+            <div className={`hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold border transition-colors ${
+              proctorViolationCount > 0 
+                ? "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-800" 
+                : "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-900"
+            }`}>
+              <ShieldAlert className="w-3.5 h-3.5" />
+              <span>{proctorViolationCount} {proctorViolationCount === 1 ? "Window Change" : "Window Changes"}</span>
+            </div>
+          )}
+
           <div className="h-4 w-px bg-slate-200 dark:bg-zinc-800 hidden sm:block" />
 
           {/* Language Selector */}
@@ -725,6 +787,7 @@ export function ArenaIDE({ problem, contestId, userEndTime, allProblems, userId 
                         padding: { top: 12, bottom: 12 },
                         scrollBeyondLastLine: false,
                         automaticLayout: true,
+                        contextmenu: !isCopyPasteBlocked,
                       }}
                       loading={<div className="flex h-full items-center justify-center text-blue-500"><Loader2 className="w-6 h-6 animate-spin" /></div>}
                     />
@@ -945,6 +1008,21 @@ export function ArenaIDE({ problem, contestId, userEndTime, allProblems, userId 
           </Panel>
         </Group>
       </div>
+
+      {/* Strict Fullscreen Proctoring Overlay & Gateway */}
+      <StrictProctorOverlay
+        contestId={contestId}
+        enabled={isStrictProctor}
+        requireFullScreen={isFullScreenRequired}
+        isFullscreen={isFullscreen}
+        violationCount={proctorViolationCount}
+        isDisqualified={isDisqualified}
+        disqualifiedReason={disqualifiedReason}
+        activeViolation={activeViolation}
+        isOpen={showWarningModal}
+        onEnterFullscreen={enterFullscreen}
+        onDismiss={() => setShowWarningModal(false)}
+      />
     </div>
   );
 }

@@ -76,7 +76,11 @@ export function ContestLeaderboardTab({ leaderboard, problems }: ContestLeaderbo
                     className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/30 transition-colors"
                   >
                     <td className="py-4 px-6 text-center font-mono font-bold">
-                      {member.rank === 1 ? (
+                      {(member as any).isDisqualified ? (
+                        <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-400 border border-red-200 dark:border-red-900/50">
+                          DQ
+                        </span>
+                      ) : member.rank === 1 ? (
                         <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">1</span>
                       ) : member.rank === 2 ? (
                         <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-200 text-slate-700 dark:bg-zinc-700 dark:text-zinc-300">2</span>
@@ -93,8 +97,15 @@ export function ContestLeaderboardTab({ leaderboard, problems }: ContestLeaderbo
                           {member.name ? member.name.slice(0, 2) : "U"}
                         </div>
                         <div>
-                          <div className="font-bold text-slate-900 dark:text-white">
-                            {member.name}
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-slate-900 dark:text-white">
+                              {member.name}
+                            </span>
+                            {(member as any).isDisqualified && (
+                              <span className="text-[10px] font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 px-1.5 py-0.5 rounded border border-red-200 dark:border-red-900/40">
+                                Disqualified
+                              </span>
+                            )}
                           </div>
                           <div className="text-xs text-slate-400">{member.email}</div>
                         </div>

@@ -3,7 +3,7 @@ import { getSessionWithRoles } from "@/app/actions/auth";
 import { getContestForManagement, getContestResultsServer } from "@/app/actions/contests";
 import { redirect } from "next/navigation";
 import { ContestManagerClient } from "@/components/contests/ContestManagerClient";
-import { ChevronLeft, Info, Code2, Users, Trophy, BarChart3, Settings } from "lucide-react";
+import { ChevronLeft, Info, Code2, Users, Trophy, BarChart3, Settings, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { AccessDenied } from "@/app/(admin)/admin/components/AccessDenied";
 
@@ -12,6 +12,7 @@ import { ContestParticipantsTab } from "@/components/contests/ContestParticipant
 import { ContestOverviewTab } from "@/components/contests/ContestOverviewTab";
 import { ContestLeaderboardTab } from "@/components/contests/ContestLeaderboardTab";
 import { ContestAnalyticsTab } from "@/components/contests/ContestAnalyticsTab";
+import { ContestProctoringTab } from "@/components/contests/ContestProctoringTab";
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +57,7 @@ export default async function ContestManagementPage({
     { id: "overview", label: "Overview & Details", icon: Info },
     { id: "problems", label: `Problems (${contest.problems.length})`, icon: Code2 },
     { id: "participants", label: `Participants (${contest._count?.members || 0})`, icon: Users },
+    { id: "proctoring", label: "Malpractice & Integrity", icon: ShieldAlert },
     { id: "leaderboard", label: "Leaderboard", icon: Trophy },
     { id: "analytics", label: "Analytics", icon: BarChart3 },
     { id: "settings", label: "Settings", icon: Settings },
@@ -113,6 +115,7 @@ export default async function ContestManagementPage({
       {tab === "overview" && <ContestOverviewTab contest={contest} totalPoints={totalPoints} />}
       {tab === "problems" && <ContestManagerClient contest={contest} />}
       {tab === "participants" && <ContestParticipantsTab contest={contest} isAdmin={isAdmin} />}
+      {tab === "proctoring" && <ContestProctoringTab contestId={contest.id} />}
       {tab === "leaderboard" && <ContestLeaderboardTab leaderboard={results.leaderboard} problems={contest.problems} />}
       {tab === "analytics" && <ContestAnalyticsTab analytics={results.analytics} totalParticipants={results.stats.totalParticipants} totalPoints={totalPoints} />}
       {tab === "settings" && <ContestSettingsTab contest={contest} isAdmin={isAdmin} />}
