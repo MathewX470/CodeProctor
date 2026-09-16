@@ -5,7 +5,7 @@ import Link from "next/link";
 import { 
   Trophy, Medal, CheckCircle2, XCircle, Clock, 
   BarChart3, Users, ChevronRight, ChevronDown, 
-  Code2, Sparkles, ArrowLeft, Eye, X, Award, ShieldCheck
+  Code2, Sparkles, ArrowLeft, Eye, X, Award, ShieldCheck, XOctagon
 } from "lucide-react";
 
 interface SubmissionHistoryItem {
@@ -16,6 +16,9 @@ interface SubmissionHistoryItem {
   sourceCode: string;
   submittedAt: Date | string;
   status: string;
+  passedTestCases?: number;
+  totalTestCases?: number;
+  earnedPoints?: number;
   language?: {
     name: string;
     slug?: string;
@@ -27,6 +30,10 @@ interface ProblemBreakdownItem {
   title: string;
   difficulty: string;
   points: number;
+  earnedPoints?: number;
+  totalTestCases?: number;
+  passedTestCases?: number;
+  status?: string;
   bestSubmission: SubmissionHistoryItem | null;
   history: SubmissionHistoryItem[];
 }
@@ -43,7 +50,11 @@ interface LeaderboardMember {
   problemResults: {
     problemId: string;
     solved: boolean;
+    partiallySolved?: boolean;
     points: number;
+    maxPoints?: number;
+    passedCases?: number;
+    totalCases?: number;
     timeMins: number;
     wrongAttempts: number;
   }[];
@@ -65,6 +76,8 @@ interface ContestResultsDashboardProps {
       accuracy: number;
       minutesSpent: number;
       isOrganizer?: boolean;
+      isDisqualified?: boolean;
+      disqualifiedReason?: string | null;
     };
     problems: ProblemBreakdownItem[];
     leaderboard: LeaderboardMember[];
@@ -94,9 +107,17 @@ export function ContestResultsDashboard({ results, currentUserId, isOrganizer }:
   );
   const [expandedProblemId, setExpandedProblemId] = useState<string | null>(results.problems[0]?.id || null);
   const [selectedCodeSubmission, setSelectedCodeSubmission] = useState<SubmissionHistoryItem | null>(null);
+  const [showDisqualifiedModal, setShowDisqualifiedModal] = useState<boolean>(Boolean(stats.isDisqualified));
 
   // Medal styling for top ranks
   const getRankBadge = (rank: number) => {
+    if (stats.isDisqualified) {
+      return (
+        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/30 font-black text-sm">
+          <XOctagon className="w-4 h-4" /> Disqualified
+        </div>
+      );
+    }
     if (rank === 1) {
       return (
         <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20 font-black text-sm">
@@ -147,6 +168,91 @@ export function ContestResultsDashboard({ results, currentUserId, isOrganizer }:
           Contest Concluded
         </div>
       </div>
+
+      {/* Disqualification Modal (Pops up immediately if disqualified) */}
+      {stats.isDisqualified && showDisqualifiedModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="max-w-md w-full bg-white dark:bg-zinc-900 border border-red-200 dark:border-red-900/60 rounded-3xl p-6 sm:p-8 text-center shadow-2xl relative animate-in zoom-in-95 duration-200">
+            <button
+              onClick={() => setShowDisqualifiedModal(false)}
+              className="absolute top-5 right-5 p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+              title="Close modal"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="w-16 h-16 rounded-2xl bg-red-100 dark:bg-red-950/50 border border-red-200 dark:border-red-900/60 text-red-600 dark:text-red-400 flex items-center justify-center mx-auto mb-5 shadow-sm">
+              <XOctagon className="w-8 h-8 animate-pulse" />
+            </div>
+
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-900/50 mb-3">
+              Integrity Violation
+            </div>
+
+            <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight mb-2">
+              You Have Been Disqualified
+            </h2>
+
+            <p className="text-xs text-slate-500 dark:text-zinc-400 mb-5 leading-relaxed">
+              Your assessment participation was terminated by the contest creator following an integrity and proctoring audit.
+            </p>
+
+            <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-2xl p-4 text-left mb-6">
+              <div className="text-[11px] font-bold text-red-600 dark:text-red-400 uppercase tracking-wider mb-1">
+                Disqualification Reason
+              </div>
+              <div className="text-sm text-red-900 dark:text-red-200 font-medium break-words">
+                {stats.disqualifiedReason || "Assessment terminated due to repeated proctoring violations."}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2.5">
+              <button
+                onClick={() => setShowDisqualifiedModal(false)}
+                className="w-full py-3 px-4 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-800 dark:text-white font-bold rounded-xl transition-all text-sm"
+              >
+                View Assessment Summary
+              </button>
+              <Link
+                href="/contests"
+                className="w-full py-3 px-4 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-lg shadow-red-600/25 transition-all text-sm text-center"
+              >
+                Return to All Contests
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Persistent Disqualification Status Bar */}
+      {stats.isDisqualified && (
+        <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm animate-in fade-in">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-950/50 text-red-600 dark:text-red-400 flex items-center justify-center shrink-0 border border-red-200 dark:border-red-900/50">
+              <XOctagon className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-600 text-white">
+                  Disqualified
+                </span>
+                <span className="text-xs font-bold text-red-700 dark:text-red-400">
+                  {stats.disqualifiedReason || "Integrity Violation"}
+                </span>
+              </div>
+              <p className="text-xs text-red-600/80 dark:text-red-400/80 mt-0.5">
+                Your ranking and score have been invalidated by the contest creator.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowDisqualifiedModal(true)}
+            className="text-xs font-bold text-red-700 dark:text-red-300 hover:text-red-800 dark:hover:text-red-200 px-3 py-1.5 bg-red-100 dark:bg-red-900/40 rounded-xl border border-red-200 dark:border-red-800 shrink-0 transition-colors"
+          >
+            View Notice Details
+          </button>
+        </div>
+      )}
 
       {/* Hero Performance Overview Card */}
       <div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 md:p-10 border border-slate-200 dark:border-zinc-800 shadow-sm relative overflow-hidden">
@@ -366,7 +472,9 @@ export function ContestResultsDashboard({ results, currentUserId, isOrganizer }:
       {activeTab === "problems" && (
         <div className="space-y-4">
           {results.problems.map((prob, idx) => {
-            const isAccepted = prob.bestSubmission?.verdict === "ACCEPTED";
+            const earnedPoints = prob.earnedPoints ?? (prob.bestSubmission?.verdict === "ACCEPTED" ? prob.points : 0);
+            const isAccepted = earnedPoints === prob.points && prob.points > 0;
+            const isPartial = earnedPoints > 0 && !isAccepted;
             const hasAttempts = prob.history.length > 0;
             const isExpanded = expandedProblemId === prob.id;
 
@@ -383,8 +491,10 @@ export function ContestResultsDashboard({ results, currentUserId, isOrganizer }:
                     <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-bold text-base shrink-0 ${
                       isAccepted 
                         ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" 
-                        : hasAttempts 
+                        : isPartial
                         ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                        : hasAttempts 
+                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
                         : "bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400"
                     }`}>
                       {idx + 1}
@@ -407,19 +517,26 @@ export function ContestResultsDashboard({ results, currentUserId, isOrganizer }:
                       <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs text-slate-500 dark:text-zinc-400">
                         <span className={`font-semibold flex items-center gap-1 ${
                           isAccepted ? "text-green-600 dark:text-green-400" :
-                          hasAttempts ? "text-amber-600 dark:text-amber-400" :
+                          isPartial ? "text-amber-600 dark:text-amber-400" :
+                          hasAttempts ? "text-blue-600 dark:text-blue-400" :
                           "text-slate-400"
                         }`}>
-                          {isAccepted ? <CheckCircle2 className="w-3.5 h-3.5" /> : hasAttempts ? <XCircle className="w-3.5 h-3.5" /> : null}
-                          {isAccepted ? "Solved" : hasAttempts ? `${prob.history.length} Attempt(s)` : "Unattempted"}
+                          {isAccepted ? <CheckCircle2 className="w-3.5 h-3.5" /> : null}
+                          {isAccepted 
+                            ? "Solved (Full Points)" 
+                            : isPartial 
+                            ? `Partial (${prob.passedTestCases || 0}/${prob.totalTestCases || 1} Cases Passed)` 
+                            : hasAttempts 
+                            ? `${prob.history.length} Attempt(s) (0 Points)` 
+                            : "Unattempted"}
                         </span>
 
-                        {isAccepted && prob.bestSubmission && (
+                        {prob.bestSubmission && (
                           <>
                             <span>•</span>
-                            <span>Best Runtime: <strong className="text-slate-700 dark:text-zinc-300 font-mono">{prob.bestSubmission.executionTime} ms</strong></span>
+                            <span>Best Runtime: <strong className="text-slate-700 dark:text-zinc-300 font-mono">{prob.bestSubmission.executionTime || 0} ms</strong></span>
                             <span>•</span>
-                            <span>Memory: <strong className="text-slate-700 dark:text-zinc-300 font-mono">{prob.bestSubmission.memoryUsed} KB</strong></span>
+                            <span>Memory: <strong className="text-slate-700 dark:text-zinc-300 font-mono">{prob.bestSubmission.memoryUsed || 0} KB</strong></span>
                           </>
                         )}
                       </div>
@@ -429,7 +546,7 @@ export function ContestResultsDashboard({ results, currentUserId, isOrganizer }:
                   <div className="flex items-center gap-6 self-end sm:self-center">
                     <div className="text-right">
                       <div className="text-base font-bold text-slate-900 dark:text-white">
-                        {isAccepted ? `+${prob.points}` : `0 / ${prob.points}`}
+                        {earnedPoints > 0 ? `${earnedPoints} / ${prob.points}` : `0 / ${prob.points}`}
                       </div>
                       <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
                         Points
@@ -464,15 +581,32 @@ export function ContestResultsDashboard({ results, currentUserId, isOrganizer }:
                               <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
                                 sub.verdict === "ACCEPTED" 
                                   ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400"
+                                  : (sub.earnedPoints && sub.earnedPoints > 0)
+                                  ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400"
                                   : "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400"
                               }`}>
                                 #{prob.history.length - sIdx}
                               </span>
 
                               <div>
-                                <span className={`font-semibold ${sub.verdict === "ACCEPTED" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                                  {sub.verdict === "ACCEPTED" ? "✓ Accepted" : `✗ ${sub.verdict}`}
+                                <span className={`font-semibold ${
+                                  sub.verdict === "ACCEPTED" 
+                                    ? "text-green-600 dark:text-green-400" 
+                                    : (sub.earnedPoints && sub.earnedPoints > 0)
+                                    ? "text-amber-600 dark:text-amber-400"
+                                    : "text-red-600 dark:text-red-400"
+                                }`}>
+                                  {sub.verdict === "ACCEPTED" 
+                                    ? "✓ Accepted (Full Points)" 
+                                    : (sub.earnedPoints && sub.earnedPoints > 0)
+                                    ? `⚡ Partial Pass (+${sub.earnedPoints} pts)` 
+                                    : `✗ ${sub.verdict}`}
                                 </span>
+                                {sub.passedTestCases !== undefined && sub.totalTestCases !== undefined && (
+                                  <span className="ml-2 text-xs font-mono text-slate-500 dark:text-zinc-400">
+                                    [{sub.passedTestCases}/{sub.totalTestCases} test cases]
+                                  </span>
+                                )}
                                 {sub.language?.name && (
                                   <span className="ml-2 text-xs text-slate-400 font-mono">({sub.language.name})</span>
                                 )}
@@ -541,7 +675,11 @@ export function ContestResultsDashboard({ results, currentUserId, isOrganizer }:
                       }`}
                     >
                       <td className="py-4 px-6 text-center font-mono font-bold">
-                        {member.rank === 1 ? (
+                        {(member as any).isDisqualified ? (
+                          <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-400 border border-red-200 dark:border-red-900/50">
+                            DQ
+                          </span>
+                        ) : member.rank === 1 ? (
                           <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">1</span>
                         ) : member.rank === 2 ? (
                           <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-200 text-slate-700 dark:bg-zinc-700 dark:text-zinc-300">2</span>
@@ -560,6 +698,11 @@ export function ContestResultsDashboard({ results, currentUserId, isOrganizer }:
                           <div>
                             <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
                               {member.name}
+                              {(member as any).isDisqualified && (
+                                <span className="text-[10px] font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 px-1.5 py-0.5 rounded border border-red-200 dark:border-red-900/40">
+                                  Disqualified
+                                </span>
+                              )}
                               {isCurrent && (
                                 <span className="px-1.5 py-0.5 rounded text-[10px] uppercase font-bold bg-blue-600 text-white">
                                   You
@@ -589,6 +732,15 @@ export function ContestResultsDashboard({ results, currentUserId, isOrganizer }:
                               </div>
                               <div className="text-[10px] text-green-500 font-mono">
                                 {pr.timeMins}m
+                              </div>
+                            </div>
+                          ) : pr.partiallySolved ? (
+                            <div className="inline-block px-2 py-1 rounded bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50">
+                              <div className="text-xs font-bold text-amber-600 dark:text-amber-400 font-mono">
+                                +{pr.points}
+                              </div>
+                              <div className="text-[10px] text-amber-500 font-mono">
+                                {pr.passedCases !== undefined && pr.totalCases !== undefined ? `${pr.passedCases}/${pr.totalCases}` : `${pr.timeMins}m`}
                               </div>
                             </div>
                           ) : pr.wrongAttempts > 0 ? (

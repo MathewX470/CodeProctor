@@ -2,13 +2,14 @@ import React from "react";
 import { getArenaDataServer, getContestResultsServer } from "@/app/actions/contests";
 import { getSessionWithRoles } from "@/app/actions/auth";
 import { redirect } from "next/navigation";
-import { Clock, ShieldCheck, CheckCircle2, ChevronRight, AlertTriangle, Trophy, Code2 } from "lucide-react";
+import { Clock, ShieldCheck, CheckCircle2, ChevronRight, AlertTriangle, Trophy, Code2, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { ArenaStartButton } from "@/components/contests/ArenaStartButton";
 import { ArenaEndButton } from "@/components/contests/ArenaEndButton";
 import { ContestCountdownLobby } from "@/components/contests/ContestCountdownLobby";
 import { ContestResultsDashboard } from "@/components/contests/ContestResultsDashboard";
 import { ContestLiveTimer } from "@/components/contests/ContestLiveTimer";
+import { ContestProblemLink } from "@/components/contests/ContestProblemLink";
 
 export const dynamic = "force-dynamic";
 
@@ -51,8 +52,8 @@ export default async function ContestArenaDashboard(props: { params: Promise<{ i
   }
 
   const isUserTimeUp = userEndTime ? now > userEndTime : false;
-  // If contest globally ended or member submitted/timed out, show results dashboard
-  const isCompleted = !!(member as any).completedAt || isUserTimeUp || isEndedGlobal;
+  // If contest globally ended, member timed out, submitted, or got disqualified -> show results/disqualification dashboard
+  const isCompleted = !!(member as any).completedAt || isUserTimeUp || isEndedGlobal || member.isDisqualified;
 
   const totalPoints = problems.reduce((acc: number, p: any) => acc + (p.points || 100), 0);
 
@@ -184,7 +185,11 @@ export default async function ContestArenaDashboard(props: { params: Promise<{ i
             </ul>
           </div>
 
-          <ArenaStartButton contestId={contest.id} />
+          <ArenaStartButton 
+            contestId={contest.id} 
+            firstProblemId={problems[0]?.problem.id}
+            requireFullScreen={contest.settings?.proctoringMode === "FULL_SCREEN" || !!contest.settings?.requireFullScreen}
+          />
         </div>
       </div>
     );
@@ -194,9 +199,7 @@ export default async function ContestArenaDashboard(props: { params: Promise<{ i
   // 3. STATE: IN PROGRESS (ACTIVE DASHBOARD)
   // ==========================================
   const solvedCount = problems.filter((p: any) => p.userStatus === "ACCEPTED").length;
-  const currentEarnedPoints = problems
-    .filter((p: any) => p.userStatus === "ACCEPTED")
-    .reduce((acc: number, p: any) => acc + (p.points || 100), 0);
+  const currentEarnedPoints = problems.reduce((acc: number, p: any) => acc + (p.earnedPoints || 0), 0);
 
   return (
     <div className="max-w-5xl mx-auto p-4 sm:p-6 md:p-10 space-y-8">
@@ -213,7 +216,7 @@ export default async function ContestArenaDashboard(props: { params: Promise<{ i
             {contest.title}
           </h1>
           <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
-            Solve problems and submit your solutions before the timer expires.
+            Solve problems and submit your solutions before the timer expires. Partial scoring is enabled.
           </p>
         </div>
         
@@ -227,6 +230,16 @@ export default async function ContestArenaDashboard(props: { params: Promise<{ i
           )}
         </div>
       </div>
+
+      {/* Strict Fullscreen Proctoring Notice */}
+      {contest.settings?.proctoringMode === "FULL_SCREEN" && (
+        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 rounded-2xl p-4 flex items-center gap-3 text-amber-800 dark:text-amber-300 text-xs font-semibold shadow-sm">
+          <ShieldAlert className="w-5 h-5 text-amber-500 shrink-0 animate-pulse" />
+          <div>
+            <span className="font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">Strict Fullscreen Proctoring Active:</span> Opening any problem locks your browser into fullscreen mode. Window changes and fullscreen exits are tracked and audited. Copying and pasting are blocked. The contest creator can review window changes and choose whether to disqualify candidates.
+          </div>
+        </div>
+      )}
 
       {/* Progress Ticker Card */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -283,20 +296,25 @@ export default async function ContestArenaDashboard(props: { params: Promise<{ i
         <div className="divide-y divide-slate-100 dark:divide-zinc-800">
           {problems.map((cp: any, idx: number) => {
             const isAccepted = cp.userStatus === "ACCEPTED";
+            const isPartial = cp.userStatus === "PARTIAL";
             const isAttempted = cp.userStatus === "ATTEMPTED";
 
             return (
-              <Link 
+              <ContestProblemLink 
                 key={cp.id} 
-                href={`/contests/${contest.id}/problems/${cp.problem.id}`}
-                className="flex items-center justify-between p-6 hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition-colors group"
+                contestId={contest.id}
+                problemId={cp.problem.id}
+                requireFullScreen={contest.settings?.proctoringMode === "FULL_SCREEN" || !!contest.settings?.requireFullScreen}
+                className="flex items-center justify-between p-6 hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition-colors group cursor-pointer"
               >
                 <div className="flex items-center gap-5">
                   <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-bold text-base transition-colors ${
                     isAccepted
                       ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                      : isAttempted
+                      : isPartial
                       ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                      : isAttempted
+                      ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
                       : "bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-400 group-hover:bg-blue-50 dark:group-hover:bg-blue-950/40 group-hover:text-blue-600"
                   }`}>
                     {idx + 1}
@@ -318,16 +336,17 @@ export default async function ContestArenaDashboard(props: { params: Promise<{ i
 
                     <div className="flex items-center gap-4 mt-1.5 text-xs text-slate-500 dark:text-zinc-400">
                       <span className="font-bold text-slate-700 dark:text-zinc-300">
-                        {cp.points} Points
+                        {cp.earnedPoints > 0 ? `${cp.earnedPoints} / ${cp.points} Points` : `${cp.points} Points`}
                       </span>
                       <span>•</span>
                       <span className={`font-semibold flex items-center gap-1 ${
                         isAccepted ? "text-green-600 dark:text-green-400" :
-                        isAttempted ? "text-amber-600 dark:text-amber-400" :
+                        isPartial ? "text-amber-600 dark:text-amber-400" :
+                        isAttempted ? "text-blue-600 dark:text-blue-400" :
                         "text-slate-400"
                       }`}>
                         {isAccepted ? <CheckCircle2 className="w-3.5 h-3.5" /> : null}
-                        {isAccepted ? "Solved" : isAttempted ? "Attempted (Unsolved)" : "Not Attempted"}
+                        {isAccepted ? "Solved (Full Points)" : isPartial ? `Partial (${cp.passedCases}/${cp.totalCases} Passed)` : isAttempted ? "Attempted (0 Points)" : "Not Attempted"}
                       </span>
                     </div>
                   </div>
@@ -337,15 +356,17 @@ export default async function ContestArenaDashboard(props: { params: Promise<{ i
                   <span className={`text-xs font-semibold px-3 py-1.5 rounded-xl border transition-colors ${
                     isAccepted 
                       ? "bg-green-50 dark:bg-green-950/40 text-green-600 border-green-200 dark:border-green-900/50" 
+                      : isPartial
+                      ? "bg-amber-50 dark:bg-amber-950/40 text-amber-600 border-amber-200 dark:border-amber-900/50"
                       : "bg-blue-600 text-white border-blue-600 group-hover:bg-blue-700"
                   }`}>
-                    {isAccepted ? "Review Solution" : "Solve Problem"}
+                    {isAccepted ? "Review Solution" : isPartial ? "Improve Score" : "Solve Problem"}
                   </span>
                   <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
                     <ChevronRight className="w-4 h-4" />
                   </div>
                 </div>
-              </Link>
+              </ContestProblemLink>
             );
           })}
         </div>

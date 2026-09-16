@@ -43,11 +43,18 @@ export async function createContestServer(data: CreateContestInput) {
       });
 
       // 2. Create the settings for the contest
+      const isFullScreen = data.proctoringMode === "FULL_SCREEN";
+      const isCv = data.proctoringMode === "CV_PROCTORED";
+
       await tx.contestSettings.create({
         data: {
           contestId: newContest.id,
           proctoringMode: data.proctoringMode,
           isPublic: data.isPublic,
+          requireFullScreen: isFullScreen || isCv,
+          detectTabSwitch: isFullScreen || isCv,
+          detectCopyPaste: isFullScreen || isCv,
+          requireCamera: isCv,
         },
       });
 
@@ -675,9 +682,18 @@ export async function getArenaDataServer(contestId: string) {
               difficulty: true,
               timeLimit: true,
               memoryLimit: true,
+              _count: {
+                select: { testCases: true }
+              },
               submissions: {
                 where: { userId, contestId },
-                select: { id: true, verdict: true }
+                select: { 
+                  id: true, 
+                  verdict: true,
+                  testCaseResults: {
+                    select: { verdict: true }
+                  }
+                }
               }
             }
           }
@@ -699,20 +715,46 @@ export async function getArenaDataServer(contestId: string) {
     throw new Error("You are not a member of this contest");
   }
 
-  // Calculate problem statuses for current user
+  // Calculate problem statuses and partial points for current user
   const problemsWithStatus = contest.problems.map(cp => {
     const subs = cp.problem.submissions || [];
-    const isAccepted = subs.some(s => s.verdict === "ACCEPTED");
+    const totalCases = cp.problem._count?.testCases || 1;
+    
+    let maxPassed = 0;
+    for (const sub of subs) {
+      if (sub.verdict === "ACCEPTED") {
+        maxPassed = totalCases;
+        break;
+      }
+      const passed = sub.testCaseResults?.filter(tc => tc.verdict === "ACCEPTED").length || 0;
+      if (passed > maxPassed) maxPassed = passed;
+    }
+
+    const earnedPoints = totalCases > 0 ? Math.round((maxPassed / totalCases) * cp.points) : 0;
+    const isAccepted = earnedPoints === cp.points && cp.points > 0;
+    const isPartial = earnedPoints > 0 && !isAccepted;
     const hasAttempted = subs.length > 0;
-    const status: "ACCEPTED" | "ATTEMPTED" | "NOT_ATTEMPTED" = isAccepted 
+    
+    const status: "ACCEPTED" | "PARTIAL" | "ATTEMPTED" | "NOT_ATTEMPTED" = isAccepted 
       ? "ACCEPTED" 
+      : isPartial
+      ? "PARTIAL"
       : (hasAttempted ? "ATTEMPTED" : "NOT_ATTEMPTED");
 
     return {
       ...cp,
-      userStatus: status
+      userStatus: status,
+      earnedPoints,
+      passedCases: maxPassed,
+      totalCases
     };
   });
+
+  const proctorSession = await prisma.proctorSession.findUnique({
+    where: { participantId: member.id },
+    include: { _count: { select: { violations: true } } }
+  });
+  const violationCount = proctorSession?._count.violations || 0;
 
   return {
     contest: {
@@ -725,7 +767,10 @@ export async function getArenaDataServer(contestId: string) {
       settings: contest.settings,
     },
     problems: problemsWithStatus,
-    member: member
+    member: {
+      ...member,
+      violationCount
+    }
   };
 }
 
@@ -744,12 +789,29 @@ export async function startContestTimer(contestId: string): Promise<{ success: b
     if (member.role === "OWNER" || member.role === "MODERATOR") {
       throw new Error("Contest creators and moderators cannot participate in the contest.");
     }
-    if (member.startedAt) return { success: true }; // Already started
+    if (member.isDisqualified) {
+      throw new Error("You have been disqualified from this contest.");
+    }
 
-    await prisma.contestMember.update({
-      where: { contestId_userId: { contestId, userId } },
-      data: { startedAt: new Date() }
+    if (!member.startedAt) {
+      await prisma.contestMember.update({
+        where: { contestId_userId: { contestId, userId } },
+        data: { startedAt: new Date() }
+      });
+    }
+
+    // Ensure ProctorSession is initialized
+    const existingSession = await prisma.proctorSession.findUnique({
+      where: { participantId: member.id }
     });
+    if (!existingSession) {
+      await prisma.proctorSession.create({
+        data: {
+          participantId: member.id,
+          startedAt: new Date()
+        }
+      });
+    }
 
     revalidatePath(`/contests/${contestId}`);
     return { success: true };
@@ -791,7 +853,7 @@ export async function getProblemForArenaServer(contestId: string, problemId: str
 
   const member = await prisma.contestMember.findUnique({
     where: { contestId_userId: { contestId, userId } },
-    include: { contest: true }
+    include: { contest: { include: { settings: true } } }
   });
 
   if (!member || !member.startedAt) {
@@ -800,6 +862,10 @@ export async function getProblemForArenaServer(contestId: string, problemId: str
 
   if (member.role === "OWNER" || member.role === "MODERATOR") {
     throw new Error("Contest creators and moderators cannot enter the participant arena.");
+  }
+
+  if (member.isDisqualified) {
+    throw new Error(`Disqualified: ${member.disqualifiedReason || "You have been disqualified from this contest."}`);
   }
 
   // Calculate time remaining and verify not expired
@@ -819,15 +885,30 @@ export async function getProblemForArenaServer(contestId: string, problemId: str
       problemTags: { include: { tag: true } },
       samples: { orderBy: { order: "asc" } },
       languageTemplates: true,
+      contestProblems: {
+        where: { contestId },
+        select: { points: true }
+      },
+      _count: {
+        select: { testCases: true }
+      },
       submissions: {
         where: { userId, contestId },
         orderBy: { submittedAt: "desc" },
-        include: { language: true }
+        include: { 
+          language: true,
+          testCaseResults: {
+            select: { verdict: true }
+          }
+        }
       }
     }
   });
 
   if (!problemData) throw new Error("Problem not found");
+
+  const currentProblemPoints = problemData.contestProblems?.[0]?.points || 100;
+  const totalProblemCases = problemData._count?.testCases || 1;
 
   const allLanguages = await prisma.language.findMany({
     where: { isActive: true }
@@ -841,9 +922,17 @@ export async function getProblemForArenaServer(contestId: string, problemId: str
         select: { 
           id: true, 
           title: true,
+          _count: {
+            select: { testCases: true }
+          },
           submissions: {
             where: { userId, contestId },
-            select: { verdict: true }
+            select: { 
+              verdict: true,
+              testCaseResults: {
+                select: { verdict: true }
+              }
+            }
           }
         } 
       } 
@@ -851,35 +940,74 @@ export async function getProblemForArenaServer(contestId: string, problemId: str
   });
   
   const allProblems = allProblemsRaw.map(cp => {
-    const isSolved = cp.problem.submissions.some(s => s.verdict === "ACCEPTED");
-    const isAttempted = cp.problem.submissions.length > 0;
+    const subs = cp.problem.submissions || [];
+    const tcTotal = cp.problem._count?.testCases || 1;
+    let maxPassed = 0;
+    for (const sub of subs) {
+      if (sub.verdict === "ACCEPTED") {
+        maxPassed = tcTotal;
+        break;
+      }
+      const passed = sub.testCaseResults?.filter(tc => tc.verdict === "ACCEPTED").length || 0;
+      if (passed > maxPassed) maxPassed = passed;
+    }
+
+    const earned = tcTotal > 0 ? Math.round((maxPassed / tcTotal) * cp.points) : 0;
+    const isSolved = earned === cp.points && cp.points > 0;
+    const isPartial = earned > 0 && !isSolved;
+    const isAttempted = subs.length > 0;
+
     return { 
       id: cp.problem.id, 
       title: cp.problem.title,
       points: cp.points,
-      status: isSolved ? "ACCEPTED" : isAttempted ? "ATTEMPTED" : "NOT_ATTEMPTED"
+      earnedPoints: earned,
+      passedCases: maxPassed,
+      totalCases: tcTotal,
+      status: isSolved ? "ACCEPTED" : (isPartial ? "PARTIAL" : (isAttempted ? "ATTEMPTED" : "NOT_ATTEMPTED"))
     };
   });
 
   return {
     problem: {
       ...problemData,
+      points: currentProblemPoints,
+      totalTestCases: totalProblemCases,
       templates: problemData.languageTemplates,
       tags: problemData.problemTags.map(pt => pt.tag.name),
       allLanguages,
-      submissions: problemData.submissions.map(s => ({
-        id: s.id,
-        status: s.status,
-        verdict: s.verdict,
-        executionTime: s.executionTime,
-        memoryUsed: s.memoryUsed,
-        sourceCode: s.sourceCode,
-        languageName: s.language.name,
-        createdAt: s.submittedAt
-      }))
+      submissions: problemData.submissions.map(s => {
+        const passedCases = s.verdict === "ACCEPTED" 
+          ? totalProblemCases 
+          : (s.testCaseResults?.filter(tc => tc.verdict === "ACCEPTED").length || 0);
+        const earned = totalProblemCases > 0 ? Math.round((passedCases / totalProblemCases) * currentProblemPoints) : 0;
+
+        return {
+          id: s.id,
+          status: s.status,
+          verdict: s.verdict,
+          executionTime: s.executionTime,
+          memoryUsed: s.memoryUsed,
+          sourceCode: s.sourceCode,
+          languageId: s.languageId,
+          languageName: s.language.name,
+          createdAt: s.submittedAt,
+          passedTestCases: passedCases,
+          totalTestCases: totalProblemCases,
+          earnedPoints: earned
+        };
+      })
     },
+    userId,
     allProblems,
-    userEndTime: userEndTime.toISOString()
+    userEndTime: userEndTime.toISOString(),
+    settings: member.contest.settings,
+    violationCount: (await prisma.proctorSession.findUnique({
+      where: { participantId: member.id },
+      include: { _count: { select: { violations: true } } }
+    }))?._count.violations || 0,
+    isDisqualified: member.isDisqualified,
+    disqualifiedReason: member.disqualifiedReason
   };
 }
 
@@ -896,7 +1024,14 @@ export async function getContestResultsServer(contestId: string) {
         orderBy: { order: "asc" },
         include: {
           problem: {
-            select: { id: true, title: true, difficulty: true }
+            select: { 
+              id: true, 
+              title: true, 
+              difficulty: true,
+              _count: {
+                select: { testCases: true }
+              }
+            }
           }
         }
       },
@@ -933,6 +1068,9 @@ export async function getContestResultsServer(contestId: string) {
       status: true,
       language: {
         select: { name: true, slug: true }
+      },
+      testCaseResults: {
+        select: { verdict: true }
       }
     }
   });
@@ -947,40 +1085,64 @@ export async function getContestResultsServer(contestId: string) {
 
     const problemResults = contest.problems.map(cp => {
       const pSubs = mSubs.filter(s => s.problemId === cp.problemId);
+      const totalCases = cp.problem._count?.testCases || 1;
       
+      let maxPointsEarned = 0;
+      let maxPassedCases = 0;
+      let bestSubmission: any = null;
       let wrongAttempts = 0;
-      let firstAccepted: any = null;
+      let firstFullSolve: any = null;
 
       for (const sub of pSubs) {
-        if (sub.verdict === "ACCEPTED") {
-          firstAccepted = sub;
-          break;
+        const passedCases = sub.verdict === "ACCEPTED" 
+          ? totalCases 
+          : (sub.testCaseResults?.filter(tc => tc.verdict === "ACCEPTED").length || 0);
+        
+        const subPoints = totalCases > 0 ? Math.round((passedCases / totalCases) * cp.points) : 0;
+
+        if (subPoints > maxPointsEarned) {
+          maxPointsEarned = subPoints;
+          maxPassedCases = passedCases;
+          bestSubmission = sub;
         }
-        if (sub.verdict && sub.verdict !== "COMPILATION_ERROR") {
-          wrongAttempts++;
+
+        if (sub.verdict === "ACCEPTED" && !firstFullSolve) {
+          firstFullSolve = sub;
+        }
+
+        if (sub.verdict !== "ACCEPTED" && sub.verdict !== "COMPILATION_ERROR") {
+          if (!firstFullSolve) {
+            wrongAttempts++;
+          }
         }
       }
 
-      let solved = false;
+      const solved = maxPointsEarned === cp.points && cp.points > 0;
+      const partiallySolved = maxPointsEarned > 0 && !solved;
       let timeMins = 0;
-      let points = 0;
 
-      if (firstAccepted) {
-        solved = true;
-        points = cp.points;
-        score += cp.points;
-        solvedCount++;
-        const startTime = m.startedAt ? new Date(m.startedAt) : new Date(contest.startTime);
-        timeMins = Math.max(0, Math.floor((new Date(firstAccepted.submittedAt).getTime() - startTime.getTime()) / 60000));
-        penalty += timeMins + (wrongAttempts * 20);
+      if (maxPointsEarned > 0) {
+        score += maxPointsEarned;
+        if (solved) solvedCount++;
+
+        const targetSub = firstFullSolve || bestSubmission;
+        if (targetSub) {
+          const startTime = m.startedAt ? new Date(m.startedAt) : new Date(contest.startTime);
+          timeMins = Math.max(0, Math.floor((new Date(targetSub.submittedAt).getTime() - startTime.getTime()) / 60000));
+          penalty += timeMins + (solved ? (wrongAttempts * 20) : 0);
+        }
       }
 
       return {
         problemId: cp.problemId,
         solved,
-        points,
+        partiallySolved,
+        points: maxPointsEarned,
+        maxPoints: cp.points,
+        passedCases: maxPassedCases,
+        totalCases,
         timeMins,
-        wrongAttempts: firstAccepted ? wrongAttempts : pSubs.length
+        wrongAttempts: solved ? wrongAttempts : pSubs.length
       };
     });
 
@@ -989,50 +1151,77 @@ export async function getContestResultsServer(contestId: string) {
       name: m.user.name || m.user.email.split("@")[0],
       email: m.user.email,
       image: m.user.image,
-      score, 
+      score: m.isDisqualified ? 0 : score, 
       penalty, 
-      solvedCount,
+      solvedCount: m.isDisqualified ? 0 : solvedCount,
       problemResults,
       startedAt: m.startedAt,
-      completedAt: (m as any).completedAt
+      completedAt: (m as any).completedAt,
+      isDisqualified: m.isDisqualified,
+      disqualifiedReason: m.disqualifiedReason
     };
   });
 
-  // Rank members (ICPC rules: higher score first, then lower penalty)
+  // Rank members (active higher score first, disqualified members at bottom)
   memberStats.sort((a, b) => {
+    if (a.isDisqualified && !b.isDisqualified) return 1;
+    if (!a.isDisqualified && b.isDisqualified) return -1;
     if (a.score !== b.score) return b.score - a.score;
     return a.penalty - b.penalty;
   });
 
   const rankedLeaderboard = memberStats.map((entry, index) => ({
     ...entry,
-    rank: index + 1
+    rank: entry.isDisqualified ? 0 : index + 1
   }));
 
   const isOrganizer = member ? (member.role === "OWNER" || member.role === "MODERATOR") : isAdmin;
   const currentUserStats = rankedLeaderboard.find(s => s.userId === userId);
   const rank = currentUserStats?.rank || 0;
 
-  // Build user's specific problem breakdown
+  // Build user's specific problem breakdown with partial score details
   const userSubmissions = allSubmissions.filter(s => s.userId === userId);
   const problemBreakdown = contest.problems.map(cp => {
     const subs = userSubmissions.filter(s => s.problemId === cp.problemId);
-    // Sort submissions descending for history view
-    const sortedSubs = [...subs].sort((a, b) => b.submittedAt.getTime() - a.submittedAt.getTime());
+    const totalCases = cp.problem._count?.testCases || 1;
+
+    const enrichedSubs = subs.map(s => {
+      const passedCases = s.verdict === "ACCEPTED" 
+        ? totalCases 
+        : (s.testCaseResults?.filter(tc => tc.verdict === "ACCEPTED").length || 0);
+      const earned = totalCases > 0 ? Math.round((passedCases / totalCases) * cp.points) : 0;
+      return {
+        ...s,
+        passedTestCases: passedCases,
+        totalTestCases: totalCases,
+        earnedPoints: earned
+      };
+    });
+
+    const sortedSubs = [...enrichedSubs].sort((a, b) => b.submittedAt.getTime() - a.submittedAt.getTime());
     
-    const accepted = subs.find(s => s.verdict === "ACCEPTED");
-    let bestSub = null;
-    if (accepted) {
-      bestSub = accepted;
-    } else if (subs.length > 0) {
-      bestSub = sortedSubs[0];
+    let bestSub: any = null;
+    let maxPts = -1;
+    for (const s of enrichedSubs) {
+      if (s.earnedPoints > maxPts) {
+        maxPts = s.earnedPoints;
+        bestSub = s;
+      }
     }
+
+    const earnedPoints = maxPts > -1 ? maxPts : 0;
+    const isSolved = earnedPoints === cp.points && cp.points > 0;
+    const isPartial = earnedPoints > 0 && !isSolved;
 
     return {
       id: cp.problem.id,
       title: cp.problem.title,
       difficulty: cp.problem.difficulty,
       points: cp.points,
+      earnedPoints,
+      totalTestCases: totalCases,
+      passedTestCases: bestSub?.passedTestCases || 0,
+      status: isSolved ? "ACCEPTED" : (isPartial ? "PARTIAL" : (subs.length > 0 ? "ATTEMPTED" : "NOT_ATTEMPTED")),
       bestSubmission: bestSub,
       history: sortedSubs
     };
@@ -1086,7 +1275,9 @@ export async function getContestResultsServer(contestId: string) {
       penalty: currentUserStats?.penalty || 0,
       accuracy: userAccuracy,
       minutesSpent: totalMinutesSpent,
-      isOrganizer
+      isOrganizer,
+      isDisqualified: !!currentUserStats?.isDisqualified,
+      disqualifiedReason: currentUserStats?.disqualifiedReason || null
     },
     problems: problemBreakdown,
     leaderboard: rankedLeaderboard,
@@ -1095,4 +1286,249 @@ export async function getContestResultsServer(contestId: string) {
       problemAnalytics
     }
   };
+}
+
+// ============================================================
+// PROCTORING & INTEGRITY ACTIONS
+// ============================================================
+
+export async function recordContestViolationServer({
+  contestId,
+  type,
+  metadata
+}: {
+  contestId: string;
+  type: "TAB_SWITCH" | "FULLSCREEN_EXIT" | "PASTE" | "LOOKING_AWAY" | "NO_FACE" | "MULTIPLE_FACES";
+  metadata?: any;
+}) {
+  try {
+    const session = await getSessionWithRoles();
+    if (!session.session?.user) throw new Error("Unauthorized");
+    const userId = session.session.user.id;
+
+    const member = await prisma.contestMember.findUnique({
+      where: { contestId_userId: { contestId, userId } },
+      include: { contest: { include: { settings: true } } }
+    });
+
+    if (!member) throw new Error("Participant not found");
+    if (member.role !== "PARTICIPANT") throw new Error("Only participants are proctored");
+
+    if (member.isDisqualified) {
+      return { 
+        success: true, 
+        isDisqualified: true, 
+        violationCount: 3, 
+        reason: member.disqualifiedReason || "Disqualified for violations" 
+      };
+    }
+
+    // Retrieve or create ProctorSession
+    let proctorSession = await prisma.proctorSession.findUnique({
+      where: { participantId: member.id }
+    });
+
+    if (!proctorSession) {
+      proctorSession = await prisma.proctorSession.create({
+        data: {
+          participantId: member.id,
+          startedAt: member.startedAt || new Date()
+        }
+      });
+    }
+
+    // Determine severity
+    let severity: "LOW" | "MEDIUM" | "HIGH" = "MEDIUM";
+    if (type === "FULLSCREEN_EXIT") severity = "HIGH";
+    else if (type === "TAB_SWITCH") severity = "HIGH";
+    else if (type === "PASTE") severity = "HIGH";
+
+    await prisma.violation.create({
+      data: {
+        proctorSessionId: proctorSession.id,
+        type: type as any,
+        severity: severity as any,
+        metadata: metadata || {}
+      }
+    });
+
+    const violationCount = await prisma.violation.count({
+      where: { proctorSessionId: proctorSession.id }
+    });
+
+    return {
+      success: true,
+      violationCount,
+      isDisqualified: member.isDisqualified,
+      reason: member.disqualifiedReason
+    };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to record violation" };
+  }
+}
+
+export async function getContestProctoringDataServer(contestId: string) {
+  const session = await getSessionWithRoles();
+  if (!session.session?.user) throw new Error("Unauthorized");
+  const userId = session.session.user.id;
+
+  const contest = await prisma.contest.findUnique({
+    where: { id: contestId },
+    include: {
+      settings: true,
+      members: {
+        where: { userId },
+        select: { role: true }
+      }
+    }
+  });
+
+  if (!contest) throw new Error("Contest not found");
+
+  const isOrganizer = 
+    contest.members[0]?.role === "OWNER" || 
+    contest.members[0]?.role === "MODERATOR" ||
+    session.isSuperAdmin || 
+    session.permissions.includes("RBAC_CONTESTS");
+
+  if (!isOrganizer) throw new Error("Forbidden: Only contest managers can view proctoring data.");
+
+  // Fetch all participant members with their proctor session and violations
+  const participantMembers = await prisma.contestMember.findMany({
+    where: { contestId, role: "PARTICIPANT" },
+    include: {
+      user: {
+        select: { id: true, name: true, email: true, image: true }
+      },
+      proctorSession: {
+        include: {
+          violations: {
+            orderBy: { timestamp: "desc" }
+          }
+        }
+      }
+    },
+    orderBy: { joinedAt: "asc" }
+  });
+
+  const participants = participantMembers.map(m => {
+    const violations = m.proctorSession?.violations || [];
+    const tabSwitches = violations.filter(v => v.type === "TAB_SWITCH").length;
+    const fullscreenExits = violations.filter(v => v.type === "FULLSCREEN_EXIT").length;
+    const pastes = violations.filter(v => v.type === "PASTE").length;
+    const others = violations.length - (tabSwitches + fullscreenExits + pastes);
+
+    return {
+      id: m.id,
+      userId: m.userId,
+      name: m.user.name || m.user.email.split("@")[0],
+      email: m.user.email,
+      image: m.user.image,
+      joinedAt: m.joinedAt,
+      startedAt: m.startedAt,
+      completedAt: m.completedAt,
+      isDisqualified: m.isDisqualified,
+      disqualifiedReason: m.disqualifiedReason,
+      disqualifiedAt: m.disqualifiedAt,
+      totalViolations: violations.length,
+      tabSwitches,
+      fullscreenExits,
+      pastes,
+      others,
+      violations: violations.map(v => ({
+        id: v.id,
+        type: v.type,
+        severity: v.severity,
+        timestamp: v.timestamp.toISOString(),
+        metadata: v.metadata
+      }))
+    };
+  });
+
+  const totalViolationsCount = participants.reduce((acc, p) => acc + p.totalViolations, 0);
+  const disqualifiedCount = participants.filter(p => p.isDisqualified).length;
+  const atRiskCount = participants.filter(p => !p.isDisqualified && p.totalViolations > 0).length;
+  const cleanCount = participants.filter(p => p.totalViolations === 0).length;
+
+  return {
+    contestId: contest.id,
+    title: contest.title,
+    settings: contest.settings,
+    summary: {
+      totalParticipants: participants.length,
+      totalViolations: totalViolationsCount,
+      cleanCount,
+      atRiskCount,
+      disqualifiedCount
+    },
+    participants
+  };
+}
+
+export async function manualDisqualifyMemberServer(contestId: string, targetUserId: string, reason: string) {
+  const session = await getSessionWithRoles();
+  if (!session.session?.user) throw new Error("Unauthorized");
+  const userId = session.session.user.id;
+
+  const contest = await prisma.contest.findUnique({
+    where: { id: contestId },
+    include: { members: { where: { userId } } }
+  });
+
+  if (!contest) throw new Error("Contest not found");
+  const isOrganizer = contest.members[0]?.role === "OWNER" || contest.members[0]?.role === "MODERATOR" || session.isSuperAdmin;
+  if (!isOrganizer) throw new Error("Forbidden");
+
+  await prisma.contestMember.update({
+    where: { contestId_userId: { contestId, userId: targetUserId } },
+    data: {
+      isDisqualified: true,
+      disqualifiedReason: reason || "Disqualified manually by contest organizer",
+      disqualifiedAt: new Date(),
+      completedAt: new Date()
+    }
+  });
+
+  revalidatePath(`/contests/${contestId}/manage`);
+  return { success: true };
+}
+
+export async function pardonMemberServer(contestId: string, targetUserId: string) {
+  const session = await getSessionWithRoles();
+  if (!session.session?.user) throw new Error("Unauthorized");
+  const userId = session.session.user.id;
+
+  const contest = await prisma.contest.findUnique({
+    where: { id: contestId },
+    include: { members: { where: { userId } } }
+  });
+
+  if (!contest) throw new Error("Contest not found");
+  const isOrganizer = contest.members[0]?.role === "OWNER" || contest.members[0]?.role === "MODERATOR" || session.isSuperAdmin;
+  if (!isOrganizer) throw new Error("Forbidden");
+
+  const member = await prisma.contestMember.findUnique({
+    where: { contestId_userId: { contestId, userId: targetUserId } },
+    include: { proctorSession: true }
+  });
+
+  if (member) {
+    if (member.proctorSession) {
+      await prisma.violation.deleteMany({
+        where: { proctorSessionId: member.proctorSession.id }
+      });
+    }
+
+    await prisma.contestMember.update({
+      where: { id: member.id },
+      data: {
+        isDisqualified: false,
+        disqualifiedReason: null,
+        disqualifiedAt: null
+      }
+    });
+  }
+
+  revalidatePath(`/contests/${contestId}/manage`);
+  return { success: true };
 }

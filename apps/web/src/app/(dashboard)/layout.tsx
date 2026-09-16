@@ -14,6 +14,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { data: session, isPending } = useSession();
   
   const isIdePage = pathname?.match(/^\/problems\/[^/]+$/);
+  const isContestArena = Boolean(pathname?.includes("/contests/") && pathname?.includes("/problems/"));
+  const [isFullscreen, setIsFullscreen] = React.useState(false);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+
+    handleFullscreenChange();
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, []);
+
+  const hideNavbar = isContestArena || isFullscreen;
 
   const hasRedirected = React.useRef(false);
 
@@ -65,9 +81,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 font-sans selection:bg-blue-100 selection:text-blue-900 dark:selection:bg-zinc-800 dark:selection:text-zinc-100 relative overflow-x-hidden flex flex-col transition-colors duration-300">
+    <div className={`bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 font-sans selection:bg-blue-100 selection:text-blue-900 dark:selection:bg-zinc-800 dark:selection:text-zinc-100 relative overflow-x-hidden flex flex-col transition-colors duration-300 ${
+      hideNavbar ? "h-screen overflow-hidden" : "min-h-screen"
+    }`}>
       {/* React Bits style animated background */}
-      {!isIdePage && <AnimatedGrid gridSize={40} className="fixed z-0" />}
+      {!hideNavbar && !isIdePage && <AnimatedGrid gridSize={40} className="fixed z-0" />}
 
       <Toaster
         position="bottom-right"
@@ -83,16 +101,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         }}
       />
       
-      {/* Universal Command Header */}
-      <DashboardNav />
+      {/* Universal Command Header (Hidden during Fullscreen tests and Contest IDE) */}
+      {!hideNavbar && <DashboardNav />}
 
       {/* Main Content Arena */}
-      <main className={`flex-1 relative z-10 w-full ${isIdePage ? "" : "max-w-7xl mx-auto px-6 py-8 sm:py-12"}`}>
+      <main className={`flex-1 relative z-10 w-full ${
+        hideNavbar 
+          ? "h-screen overflow-hidden p-0 m-0" 
+          : isIdePage 
+          ? "" 
+          : "max-w-7xl mx-auto px-6 py-8 sm:py-12"
+      }`}>
         {children}
       </main>
 
       {/* Footer Minimal Status */}
-      {!isIdePage && (
+      {!hideNavbar && !isIdePage && (
         <footer className="border-t border-slate-200 dark:border-zinc-800/80 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-sm py-6 px-6 text-center text-xs text-slate-500 dark:text-zinc-500 relative z-10 transition-colors">
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
             <span>CodeProctor Arena &bull; Zero-Trust Sandbox & AI Proctoring</span>
