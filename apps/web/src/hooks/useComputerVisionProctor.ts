@@ -359,6 +359,11 @@ export function useComputerVisionProctor({
       if (now - lastInferenceTimeRef.current >= CV_DEFAULT_THRESHOLDS.targetInferenceIntervalMs) {
         lastInferenceTimeRef.current = now;
 
+        if (videoRef.current && streamRef.current && videoRef.current.srcObject !== streamRef.current) {
+          videoRef.current.srcObject = streamRef.current;
+          videoRef.current.play().catch(() => {});
+        }
+
         if (videoRef.current && videoRef.current.readyState >= 2 && landmarkerRef.current) {
           try {
             // Periodic luminance check (every 250ms)
