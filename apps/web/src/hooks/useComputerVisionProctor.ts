@@ -5,6 +5,39 @@ import { recordContestViolationServer } from "@/app/actions/contests";
 import { CV_DEFAULT_THRESHOLDS } from "@/lib/proctoring/cvThresholds";
 import { enqueueOfflineEvent, flushOfflineQueue } from "@/lib/proctoring/offlineQueue";
 
+// Suppress benign MediaPipe / TensorFlow Lite WASM info/warning logs that trigger Next.js error overlays
+if (typeof window !== "undefined" && !(window as any).__mediapipe_logs_filtered) {
+  (window as any).__mediapipe_logs_filtered = true;
+  const originalConsoleError = console.error;
+  const originalConsoleWarn = console.warn;
+
+  const isBenignWasmLog = (args: any[]) => {
+    const text = args.map(a => (typeof a === "string" ? a : (a?.message || ""))).join(" ");
+    return (
+      text.includes("INFO: Created TensorFlow Lite") ||
+      text.includes("XNNPACK delegate") ||
+      text.includes("FaceBlendshapesGraph acceleration") ||
+      text.includes("OpenGL error checking")
+    );
+  };
+
+  console.error = (...args: any[]) => {
+    if (isBenignWasmLog(args)) {
+      console.info(...args);
+      return;
+    }
+    originalConsoleError(...args);
+  };
+
+  console.warn = (...args: any[]) => {
+    if (isBenignWasmLog(args)) {
+      console.info(...args);
+      return;
+    }
+    originalConsoleWarn(...args);
+  };
+}
+
 export type CVProctorStatus = 
   | "INITIALIZING" 
   | "CALIBRATING" 
