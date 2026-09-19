@@ -6,26 +6,33 @@ import { Loader2, Play, ShieldAlert, Maximize, AlertTriangle, X } from "lucide-r
 import { toast } from "sonner";
 import { startContestTimer } from "@/app/actions/contests";
 
+import { CameraCalibrationModal } from "./CameraCalibrationModal";
+
 interface ArenaStartButtonProps {
   contestId: string;
   firstProblemId?: string;
   requireFullScreen?: boolean;
+  proctoringMode?: string;
 }
 
 export function ArenaStartButton({ 
   contestId, 
   firstProblemId, 
-  requireFullScreen = false 
+  requireFullScreen = false,
+  proctoringMode
 }: ArenaStartButtonProps) {
   const router = useRouter();
   const [isStarting, setIsStarting] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showCalibrationModal, setShowCalibrationModal] = useState(false);
+
+  const isCvMode = proctoringMode === "CV_PROCTORED";
 
   const handleStart = async () => {
     setIsStarting(true);
 
     // Request fullscreen immediately on trusted user gesture
-    if (requireFullScreen && typeof document !== "undefined" && !document.fullscreenElement) {
+    if ((requireFullScreen || isCvMode) && typeof document !== "undefined" && !document.fullscreenElement) {
       try {
         await document.documentElement.requestFullscreen();
       } catch (err) {
@@ -36,8 +43,11 @@ export function ArenaStartButton({
     const res = await startContestTimer(contestId);
     if (res.success) {
       setShowConfirmModal(false);
+      setShowCalibrationModal(false);
       toast.success(
-        requireFullScreen 
+        isCvMode 
+          ? "Assessment started with AI Vision Proctoring active! Good luck."
+          : requireFullScreen 
           ? "Assessment started in Fullscreen Mode! Good luck." 
           : "Timer started! Good luck."
       );
@@ -53,7 +63,9 @@ export function ArenaStartButton({
   };
 
   const onButtonClick = () => {
-    if (requireFullScreen) {
+    if (isCvMode) {
+      setShowCalibrationModal(true);
+    } else if (requireFullScreen) {
       setShowConfirmModal(true);
     } else {
       handleStart();
@@ -143,6 +155,16 @@ export function ArenaStartButton({
             </div>
           </div>
         </div>
+      )}
+
+      {/* AI Vision Proctoring 6-Step Calibration Modal */}
+      {showCalibrationModal && (
+        <CameraCalibrationModal
+          isOpen={showCalibrationModal}
+          onClose={() => setShowCalibrationModal(false)}
+          onConfirmStart={handleStart}
+          isStarting={isStarting}
+        />
       )}
     </>
   );

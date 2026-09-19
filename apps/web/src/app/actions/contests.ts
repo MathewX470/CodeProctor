@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionWithRoles } from "./auth";
 import { revalidatePath } from "next/cache";
 import { ProctoringMode } from "@prisma/client";
+import { uploadProctorSnapshot, getPresignedSnapshotUrl } from "@/lib/proctoring/s3Snapshots";
 
 export type CreateContestInput = {
   title: string;
@@ -1295,10 +1296,16 @@ export async function getContestResultsServer(contestId: string) {
 export async function recordContestViolationServer({
   contestId,
   type,
+  durationSec,
+  confidence,
+  snapshotBase64,
   metadata
 }: {
   contestId: string;
-  type: "TAB_SWITCH" | "FULLSCREEN_EXIT" | "PASTE" | "LOOKING_AWAY" | "NO_FACE" | "MULTIPLE_FACES";
+  type: "TAB_SWITCH" | "FULLSCREEN_EXIT" | "PASTE" | "LOOKING_AWAY" | "NO_FACE" | "MULTIPLE_FACES" | "CAMERA_BLOCKED" | "CAMERA_DISCONNECTED";
+  durationSec?: number;
+  confidence?: number;
+  snapshotBase64?: string;
   metadata?: any;
 }) {
   try {
@@ -1318,7 +1325,6 @@ export async function recordContestViolationServer({
       return { 
         success: true, 
         isDisqualified: true, 
-        violationCount: 3, 
         reason: member.disqualifiedReason || "Disqualified for violations" 
       };
     }
@@ -1337,20 +1343,70 @@ export async function recordContestViolationServer({
       });
     }
 
+    // Map to supported Prisma ViolationType enum
+    let prismaType: "TAB_SWITCH" | "FULLSCREEN_EXIT" | "PASTE" | "LOOKING_AWAY" | "NO_FACE" | "MULTIPLE_FACES" = "NO_FACE";
+    let subType = "";
+
+    if (type === "CAMERA_BLOCKED") {
+      prismaType = "NO_FACE";
+      subType = "CAMERA_BLOCKED";
+    } else if (type === "CAMERA_DISCONNECTED") {
+      prismaType = "NO_FACE";
+      subType = "CAMERA_DISCONNECTED";
+    } else {
+      prismaType = type;
+    }
+
     // Determine severity
     let severity: "LOW" | "MEDIUM" | "HIGH" = "MEDIUM";
-    if (type === "FULLSCREEN_EXIT") severity = "HIGH";
-    else if (type === "TAB_SWITCH") severity = "HIGH";
-    else if (type === "PASTE") severity = "HIGH";
+    if (type === "MULTIPLE_FACES" || type === "CAMERA_BLOCKED") {
+      severity = "HIGH";
+    } else if (type === "FULLSCREEN_EXIT" && (durationSec || 0) > 10) {
+      severity = "HIGH";
+    } else if (type === "TAB_SWITCH" && (durationSec || 0) > 10) {
+      severity = "HIGH";
+    } else if (type === "NO_FACE" && (durationSec || 0) > 15) {
+      severity = "HIGH";
+    } else {
+      severity = "LOW";
+    }
 
-    await prisma.violation.create({
+    const enrichedMetadata = {
+      ...(metadata || {}),
+      subType: subType || undefined,
+      durationSec: durationSec ?? 0,
+      confidence: confidence ?? 1.0,
+      recordedAt: new Date().toISOString()
+    };
+
+    const violation = await prisma.violation.create({
       data: {
         proctorSessionId: proctorSession.id,
-        type: type as any,
+        type: prismaType,
         severity: severity as any,
-        metadata: metadata || {}
+        metadata: enrichedMetadata
       }
     });
+
+    // If snapshot is included, upload to S3 / local fallback and link to Snapshot table
+    if (snapshotBase64) {
+      const uploadRes = await uploadProctorSnapshot({
+        contestId,
+        proctorSessionId: proctorSession.id,
+        violationId: violation.id,
+        base64Data: snapshotBase64,
+        userId
+      });
+
+      if (uploadRes?.fileId) {
+        await prisma.snapshot.create({
+          data: {
+            violationId: violation.id,
+            fileId: uploadRes.fileId
+          }
+        });
+      }
+    }
 
     const violationCount = await prisma.violation.count({
       where: { proctorSessionId: proctorSession.id }
@@ -1358,6 +1414,7 @@ export async function recordContestViolationServer({
 
     return {
       success: true,
+      violationId: violation.id,
       violationCount,
       isDisqualified: member.isDisqualified,
       reason: member.disqualifiedReason
@@ -1403,6 +1460,13 @@ export async function getContestProctoringDataServer(contestId: string) {
       proctorSession: {
         include: {
           violations: {
+            include: {
+              snapshots: {
+                include: {
+                  file: true
+                }
+              }
+            },
             orderBy: { timestamp: "desc" }
           }
         }
@@ -1411,12 +1475,38 @@ export async function getContestProctoringDataServer(contestId: string) {
     orderBy: { joinedAt: "asc" }
   });
 
-  const participants = participantMembers.map(m => {
+  const participants = await Promise.all(participantMembers.map(async m => {
     const violations = m.proctorSession?.violations || [];
     const tabSwitches = violations.filter(v => v.type === "TAB_SWITCH").length;
     const fullscreenExits = violations.filter(v => v.type === "FULLSCREEN_EXIT").length;
     const pastes = violations.filter(v => v.type === "PASTE").length;
-    const others = violations.length - (tabSwitches + fullscreenExits + pastes);
+    const multipleFaces = violations.filter(v => v.type === "MULTIPLE_FACES").length;
+    const noFace = violations.filter(v => v.type === "NO_FACE" && (v.metadata as any)?.subType !== "CAMERA_BLOCKED").length;
+    const cameraBlocked = violations.filter(v => (v.metadata as any)?.subType === "CAMERA_BLOCKED").length;
+    const lookingAway = violations.filter(v => v.type === "LOOKING_AWAY").length;
+    const others = violations.length - (tabSwitches + fullscreenExits + pastes + multipleFaces + noFace + cameraBlocked + lookingAway);
+
+    const formattedViolations = await Promise.all(violations.map(async v => {
+      let snapshotUrl: string | undefined = undefined;
+      const snapshotFile = v.snapshots[0]?.file;
+      if (snapshotFile) {
+        snapshotUrl = await getPresignedSnapshotUrl(snapshotFile, 900);
+      }
+
+      const meta = (v.metadata || {}) as any;
+
+      return {
+        id: v.id,
+        type: v.type,
+        subType: meta.subType || undefined,
+        severity: v.severity,
+        timestamp: v.timestamp.toISOString(),
+        durationSec: meta.durationSec ?? 0,
+        confidence: meta.confidence ?? 1.0,
+        snapshotUrl,
+        metadata: meta
+      };
+    }));
 
     return {
       id: m.id,
@@ -1434,16 +1524,14 @@ export async function getContestProctoringDataServer(contestId: string) {
       tabSwitches,
       fullscreenExits,
       pastes,
+      multipleFaces,
+      noFace,
+      cameraBlocked,
+      lookingAway,
       others,
-      violations: violations.map(v => ({
-        id: v.id,
-        type: v.type,
-        severity: v.severity,
-        timestamp: v.timestamp.toISOString(),
-        metadata: v.metadata
-      }))
+      violations: formattedViolations
     };
-  });
+  }));
 
   const totalViolationsCount = participants.reduce((acc, p) => acc + p.totalViolations, 0);
   const disqualifiedCount = participants.filter(p => p.isDisqualified).length;

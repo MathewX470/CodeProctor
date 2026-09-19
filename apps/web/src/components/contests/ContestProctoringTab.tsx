@@ -12,6 +12,7 @@ import {
   manualDisqualifyMemberServer, 
   pardonMemberServer 
 } from "@/app/actions/contests";
+import { ProctoringEvidenceTimeline } from "./ProctoringEvidenceTimeline";
 
 export function ContestProctoringTab({ contestId }: { contestId: string }) {
   const [data, setData] = useState<any>(null);
@@ -218,16 +219,27 @@ export function ContestProctoringTab({ contestId }: { contestId: string }) {
               <tr>
                 <th className="py-4 px-6">Candidate</th>
                 <th className="py-4 px-6 text-center">Status</th>
-                <th className="py-4 px-6 text-center">Tab Switches</th>
-                <th className="py-4 px-6 text-center">Fullscreen Exits</th>
-                <th className="py-4 px-6 text-center">Pastes Blocked</th>
+                {settings?.proctoringMode === "CV_PROCTORED" ? (
+                  <>
+                    <th className="py-4 px-6 text-center">Multi-Faces</th>
+                    <th className="py-4 px-6 text-center">No Face / Dark</th>
+                    <th className="py-4 px-6 text-center">Gaze Shift</th>
+                    <th className="py-4 px-6 text-center">Focus / Fullscreen</th>
+                  </>
+                ) : (
+                  <>
+                    <th className="py-4 px-6 text-center">Tab Switches</th>
+                    <th className="py-4 px-6 text-center">Fullscreen Exits</th>
+                    <th className="py-4 px-6 text-center">Pastes Blocked</th>
+                  </>
+                )}
                 <th className="py-4 px-6 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-zinc-800 text-xs">
               {filteredParticipants.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400">
+                  <td colSpan={7} className="py-12 text-center text-slate-400">
                     No candidates found matching the criteria.
                   </td>
                 </tr>
@@ -257,7 +269,7 @@ export function ContestProctoringTab({ contestId }: { contestId: string }) {
                       ) : p.totalViolations > 0 ? (
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-black uppercase bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400 border border-amber-200 dark:border-amber-900/50">
                           <AlertTriangle className="w-3 h-3" />
-                          {p.totalViolations} {p.totalViolations === 1 ? "Change" : "Changes"}
+                          {p.totalViolations} {p.totalViolations === 1 ? "Event" : "Events"}
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-green-100 text-green-700 dark:bg-green-950/60 dark:text-green-400 border border-green-200 dark:border-green-900/50">
@@ -267,39 +279,77 @@ export function ContestProctoringTab({ contestId }: { contestId: string }) {
                       )}
                     </td>
 
-                    <td className="py-4 px-6 text-center font-mono font-bold">
-                      {p.tabSwitches > 0 ? (
-                        <span className="text-amber-600 dark:text-amber-400">{p.tabSwitches}</span>
-                      ) : (
-                        <span className="text-slate-400">0</span>
-                      )}
-                    </td>
+                    {settings?.proctoringMode === "CV_PROCTORED" ? (
+                      <>
+                        <td className="py-4 px-6 text-center font-mono font-bold">
+                          {p.multipleFaces > 0 ? (
+                            <span className="text-red-600 dark:text-red-400">{p.multipleFaces}</span>
+                          ) : (
+                            <span className="text-slate-400">0</span>
+                          )}
+                        </td>
 
-                    <td className="py-4 px-6 text-center font-mono font-bold">
-                      {p.fullscreenExits > 0 ? (
-                        <span className="text-red-600 dark:text-red-400">{p.fullscreenExits}</span>
-                      ) : (
-                        <span className="text-slate-400">0</span>
-                      )}
-                    </td>
+                        <td className="py-4 px-6 text-center font-mono font-bold">
+                          {(p.noFace + p.cameraBlocked) > 0 ? (
+                            <span className="text-amber-600 dark:text-amber-400">{p.noFace + p.cameraBlocked}</span>
+                          ) : (
+                            <span className="text-slate-400">0</span>
+                          )}
+                        </td>
 
-                    <td className="py-4 px-6 text-center font-mono font-bold">
-                      {p.pastes > 0 ? (
-                        <span className="text-purple-600 dark:text-purple-400">{p.pastes}</span>
-                      ) : (
-                        <span className="text-slate-400">0</span>
-                      )}
-                    </td>
+                        <td className="py-4 px-6 text-center font-mono font-bold">
+                          {p.lookingAway > 0 ? (
+                            <span className="text-purple-600 dark:text-purple-400">{p.lookingAway}</span>
+                          ) : (
+                            <span className="text-slate-400">0</span>
+                          )}
+                        </td>
+
+                        <td className="py-4 px-6 text-center font-mono font-bold">
+                          {(p.tabSwitches + p.fullscreenExits) > 0 ? (
+                            <span className="text-blue-600 dark:text-blue-400">{p.tabSwitches + p.fullscreenExits}</span>
+                          ) : (
+                            <span className="text-slate-400">0</span>
+                          )}
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="py-4 px-6 text-center font-mono font-bold">
+                          {p.tabSwitches > 0 ? (
+                            <span className="text-amber-600 dark:text-amber-400">{p.tabSwitches}</span>
+                          ) : (
+                            <span className="text-slate-400">0</span>
+                          )}
+                        </td>
+
+                        <td className="py-4 px-6 text-center font-mono font-bold">
+                          {p.fullscreenExits > 0 ? (
+                            <span className="text-red-600 dark:text-red-400">{p.fullscreenExits}</span>
+                          ) : (
+                            <span className="text-slate-400">0</span>
+                          )}
+                        </td>
+
+                        <td className="py-4 px-6 text-center font-mono font-bold">
+                          {p.pastes > 0 ? (
+                            <span className="text-purple-600 dark:text-purple-400">{p.pastes}</span>
+                          ) : (
+                            <span className="text-slate-400">0</span>
+                          )}
+                        </td>
+                      </>
+                    )}
 
                     <td className="py-4 px-6 text-right">
                       <div className="flex items-center justify-end gap-2">
                         {p.totalViolations > 0 && (
                           <button
                             onClick={() => setSelectedParticipant(p)}
-                            className="px-3 py-1.5 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 text-slate-700 dark:text-zinc-200 font-bold rounded-lg transition-colors flex items-center gap-1 text-[11px]"
+                            className="px-3 py-1.5 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 text-blue-700 dark:text-blue-300 font-bold rounded-lg transition-colors flex items-center gap-1 text-[11px] border border-blue-200 dark:border-blue-900/50"
                           >
                             <Eye className="w-3 h-3" />
-                            Timeline ({p.totalViolations})
+                            Evidence ({p.totalViolations})
                           </button>
                         )}
 
@@ -332,65 +382,19 @@ export function ContestProctoringTab({ contestId }: { contestId: string }) {
         </div>
       </div>
 
-      {/* Violation Event Timeline Drawer / Modal */}
+      {/* Comprehensive Visual Evidence Timeline Dossier Modal */}
       {selectedParticipant && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="max-w-lg w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-4">
-              <div>
-                <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                  Violation Timeline: {selectedParticipant.name}
-                </h3>
-                <p className="text-xs text-slate-400">{selectedParticipant.email}</p>
-              </div>
-              <button
-                onClick={() => setSelectedParticipant(null)}
-                className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-400"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
-              {selectedParticipant.violations?.map((v: any, idx: number) => {
-                const isExit = v.type === "FULLSCREEN_EXIT";
-                const isTab = v.type === "TAB_SWITCH";
-                const isPaste = v.type === "PASTE";
-
-                return (
-                  <div
-                    key={v.id}
-                    className="p-3.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/40 text-xs space-y-1.5"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className={`font-black uppercase tracking-wider px-2 py-0.5 rounded text-[10px] ${
-                        isExit ? "bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-400" :
-                        isTab ? "bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400" :
-                        "bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-400"
-                      }`}>
-                        Event #{selectedParticipant.violations.length - idx}: {v.type.replace("_", " ")}
-                      </span>
-                      <span className="font-mono text-slate-400 text-[10px]">
-                        {new Date(v.timestamp).toLocaleTimeString()}
-                      </span>
-                    </div>
-
-                    <p className="text-slate-600 dark:text-zinc-300 font-medium">
-                      {v.metadata?.detail || "Rule violation recorded by client engine."}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-
-            <button
-              onClick={() => setSelectedParticipant(null)}
-              className="w-full py-2.5 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 text-slate-800 dark:text-zinc-200 font-bold rounded-xl text-xs"
-            >
-              Close Timeline
-            </button>
-          </div>
-        </div>
+        <ProctoringEvidenceTimeline
+          isOpen={Boolean(selectedParticipant)}
+          onClose={() => setSelectedParticipant(null)}
+          candidateName={selectedParticipant.name}
+          candidateEmail={selectedParticipant.email}
+          isDisqualified={selectedParticipant.isDisqualified}
+          disqualifiedReason={selectedParticipant.disqualifiedReason}
+          violations={selectedParticipant.violations || []}
+          onDisqualify={() => handleManualDisqualify(selectedParticipant.userId, selectedParticipant.name)}
+          onPardon={() => handlePardon(selectedParticipant.userId, selectedParticipant.name)}
+        />
       )}
     </div>
   );
