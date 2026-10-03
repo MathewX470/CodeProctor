@@ -1,15 +1,53 @@
-version: '3.8'
-
 services:
+  redis:
+    image: redis:alpine
+    container_name: codeproctor-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+
   worker:
     build:
       context: .
       dockerfile: worker/Dockerfile
     restart: unless-stopped
+    depends_on:
+      - redis
     volumes:
       # Mount the host's Docker socket so the worker can run test case containers
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       # Provide these via a .env file in the same directory as this compose file
       - DATABASE_URL=${DATABASE_URL}
-      - REDIS_URL=${REDIS_URL}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
+
+  runner-c:
+    image: runner-c:latest
+    build: docker/c
+    profiles: ["runners"]
+
+  runner-cpp:
+    image: runner-cpp:latest
+    build: docker/cpp
+    profiles: ["runners"]
+
+  runner-java:
+    image: runner-java:latest
+    build: docker/java
+    profiles: ["runners"]
+
+  runner-python:
+    image: runner-python:latest
+    build: docker/python
+    profiles: ["runners"]
+
+  runner-node:
+    image: runner-node:latest
+    build: docker/javascript
+    profiles: ["runners"]
+
+volumes:
+  redis_data:

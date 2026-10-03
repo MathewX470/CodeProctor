@@ -17,6 +17,8 @@ import { useRouter } from "next/navigation";
 import { endContestServer } from "@/app/actions/contests";
 import { useStrictProctor } from "@/hooks/useStrictProctor";
 import { StrictProctorOverlay } from "./StrictProctorOverlay";
+import { useComputerVisionProctor } from "@/hooks/useComputerVisionProctor";
+import { WebcamHUD } from "./WebcamHUD";
 
 const MDPreview = dynamic(
   () => import("@uiw/react-markdown-preview").then((mod) => mod.default),
@@ -92,11 +94,12 @@ export function ArenaIDE({
   const { resolvedTheme } = useTheme();
   const router = useRouter();
 
-  // Strict Proctoring Integration
-  const isStrictProctor = settings?.proctoringMode === "FULL_SCREEN" || !!settings?.requireFullScreen;
-  const isFullScreenRequired = settings?.proctoringMode === "FULL_SCREEN" || !!settings?.requireFullScreen;
-  const isTabSwitchDetected = settings?.proctoringMode === "FULL_SCREEN" || !!settings?.detectTabSwitch;
-  const isCopyPasteBlocked = settings?.proctoringMode === "FULL_SCREEN" || !!settings?.detectCopyPaste;
+  // Strict & Computer Vision Proctoring Integration
+  const isCvProctor = settings?.proctoringMode === "CV_PROCTORED" || !!settings?.requireCamera;
+  const isStrictProctor = isCvProctor || settings?.proctoringMode === "FULL_SCREEN" || !!settings?.requireFullScreen;
+  const isFullScreenRequired = isCvProctor || settings?.proctoringMode === "FULL_SCREEN" || !!settings?.requireFullScreen;
+  const isTabSwitchDetected = isCvProctor || settings?.proctoringMode === "FULL_SCREEN" || !!settings?.detectTabSwitch;
+  const isCopyPasteBlocked = isCvProctor || settings?.proctoringMode === "FULL_SCREEN" || !!settings?.detectCopyPaste;
 
   const {
     isFullscreen,
@@ -119,6 +122,20 @@ export function ArenaIDE({
     onDisqualified: (reason) => {
       toast.error(reason || "You have been disqualified for integrity violations.", { duration: 5000 });
     }
+  });
+
+  // Computer Vision Proctoring Hook
+  const {
+    videoRef: cvVideoRef,
+    status: cvStatus,
+    faceCount: cvFaceCount,
+    yaw: cvYaw,
+    pitch: cvPitch,
+    isCameraReady: cvIsCameraReady,
+    recalibrate: cvRecalibrate
+  } = useComputerVisionProctor({
+    contestId,
+    enabled: isCvProctor && !isDisqualified
   });
   
   // LocalStorage Auto-save Key - strictly scoped by userId so different accounts on the same machine never share code
@@ -514,6 +531,20 @@ export function ArenaIDE({
             }`}>
               <ShieldAlert className="w-3.5 h-3.5" />
               <span>{proctorViolationCount} {proctorViolationCount === 1 ? "Window Change" : "Window Changes"}</span>
+            </div>
+          )}
+
+          {/* AI Vision Camera Status Indicator */}
+          {isCvProctor && (
+            <div className={`hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold border transition-colors ${
+              cvStatus === "NORMAL"
+                ? "bg-green-50 dark:bg-green-950/40 text-green-600 dark:text-green-400 border-green-200 dark:border-green-900"
+                : cvStatus === "CALIBRATING"
+                ? "bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-900"
+                : "bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border-red-200 dark:border-red-900"
+            }`}>
+              <span className={`w-2 h-2 rounded-full ${cvStatus === "NORMAL" ? "bg-green-500" : "bg-red-500"} animate-pulse`} />
+              <span>AI Vision: {cvStatus}</span>
             </div>
           )}
 
@@ -1023,6 +1054,19 @@ export function ArenaIDE({
         onEnterFullscreen={enterFullscreen}
         onDismiss={() => setShowWarningModal(false)}
       />
+
+      {/* Floating Picture-in-Picture Webcam HUD */}
+      {isCvProctor && !isDisqualified && (
+        <WebcamHUD
+          videoRef={cvVideoRef}
+          status={cvStatus}
+          faceCount={cvFaceCount}
+          yaw={cvYaw}
+          pitch={cvPitch}
+          isCameraReady={cvIsCameraReady}
+          onRecalibrate={cvRecalibrate}
+        />
+      )}
     </div>
   );
 }

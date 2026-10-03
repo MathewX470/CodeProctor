@@ -11,15 +11,23 @@ const execAsync = promisify(exec);
 export async function compileContainer(image, tempDirPath, compileCommand, timeoutMs = 15000) {
   if (!compileCommand) return { success: true }; // Interpreted language
 
-  // We compile inside the container. We map the workspace and run the compiler.
-  // We use memory limit for compilation (e.g. 256MB)
-  const dockerCmd = `docker run --rm -v "${tempDirPath}:/workspace" --network none --memory="256m" --workdir /workspace ${image} sh -c "${compileCommand}"`;
+  const containerName = `compile-${path.basename(tempDirPath)}`;
   
   try {
-    const { stdout, stderr } = await execAsync(dockerCmd, { 
+    // Start a temporary container for compilation
+    await execAsync(`docker run -d --rm --name "${containerName}" --network none --memory="256m" --workdir /workspace ${image} sleep infinity`);
+    
+    // Copy source files from the worker container into the compilation container
+    await execAsync(`docker cp "${tempDirPath}/." "${containerName}:/workspace/"`);
+    
+    // Run the compiler inside the container
+    const { stdout, stderr } = await execAsync(`docker exec "${containerName}" sh -c "${compileCommand}"`, { 
       timeout: timeoutMs,
       killSignal: 'SIGKILL'
     });
+    
+    // Copy the compiled binaries back to the worker container
+    await execAsync(`docker cp "${containerName}:/workspace/." "${tempDirPath}/"`);
     
     return { success: true, stdout, stderr };
   } catch (error) {
@@ -31,6 +39,9 @@ export async function compileContainer(image, tempDirPath, compileCommand, timeo
       errorType: 'COMPILATION_ERROR',
       stderr: error.stderr || error.message
     };
+  } finally {
+    // Ensure we kill the compilation container
+    try { await execAsync(`docker rm -f "${containerName}"`); } catch(e) {}
   }
 }
 
@@ -39,11 +50,13 @@ export async function compileContainer(image, tempDirPath, compileCommand, timeo
  * Uses security flags to lock down the container.
  */
 export async function startExecutionContainer(image, tempDirPath, containerName) {
-  // Sleep infinity keeps it alive
-  // Security options included
-  const dockerCmd = `docker run -d --rm --name "${containerName}" -v "${tempDirPath}:/workspace" --network none --memory="128m" --cpus="1" --pids-limit="64" --read-only --security-opt=no-new-privileges --tmpfs /tmp --workdir /workspace ${image} sleep infinity`;
+  // Start the execution container without volume mounts
+  const dockerCmd = `docker run -d --rm --name "${containerName}" --network none --memory="128m" --cpus="1" --pids-limit="64" --security-opt=no-new-privileges --workdir /workspace ${image} sleep infinity`;
   
   await execAsync(dockerCmd);
+  
+  // Copy the source code / compiled binaries into the execution container
+  await execAsync(`docker cp "${tempDirPath}/." "${containerName}:/workspace/"`);
 }
 
 /**
@@ -55,10 +68,8 @@ export async function runTestCase(containerName, tempDirPath, runCommand, input,
     let stdoutData = '';
     let stderrData = '';
     
-    // We use /usr/bin/time (busybox time) to write exact execution stats to a file inside the container's /workspace (which maps to tempDirPath).
-    // The -v flag gives us verbose output, and -o outputs it to the file so it doesn't pollute stderr.
     // We wrap runCommand so that if it fails, the exit code is preserved.
-    const wrappedCommand = `time -v -o /workspace/time.txt sh -c '${runCommand.replace(/'/g, "'\\''")}'; exit_code=$?; exit $exit_code`;
+    const wrappedCommand = `sh -c '${runCommand.replace(/'/g, "'\\''")}'; exit_code=$?; exit $exit_code`;
     
     // docker exec -i runs the command interactively so we can pipe stdin
     const child = spawn('docker', ['exec', '-i', containerName, 'sh', '-c', wrappedCommand]);

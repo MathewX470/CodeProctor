@@ -188,7 +188,8 @@ export default async function ContestArenaDashboard(props: { params: Promise<{ i
           <ArenaStartButton 
             contestId={contest.id} 
             firstProblemId={problems[0]?.problem.id}
-            requireFullScreen={contest.settings?.proctoringMode === "FULL_SCREEN" || !!contest.settings?.requireFullScreen}
+            requireFullScreen={contest.settings?.proctoringMode === "FULL_SCREEN" || contest.settings?.proctoringMode === "CV_PROCTORED" || !!contest.settings?.requireFullScreen}
+            proctoringMode={contest.settings?.proctoringMode}
           />
         </div>
       </div>
@@ -237,6 +238,16 @@ export default async function ContestArenaDashboard(props: { params: Promise<{ i
           <ShieldAlert className="w-5 h-5 text-amber-500 shrink-0 animate-pulse" />
           <div>
             <span className="font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">Strict Fullscreen Proctoring Active:</span> Opening any problem locks your browser into fullscreen mode. Window changes and fullscreen exits are tracked and audited. Copying and pasting are blocked. The contest creator can review window changes and choose whether to disqualify candidates.
+          </div>
+        </div>
+      )}
+
+      {/* AI Vision Proctoring Notice */}
+      {contest.settings?.proctoringMode === "CV_PROCTORED" && (
+        <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-900/50 rounded-2xl p-4 flex items-center gap-3 text-purple-900 dark:text-purple-300 text-xs font-semibold shadow-sm">
+          <ShieldAlert className="w-5 h-5 text-purple-600 shrink-0 animate-pulse" />
+          <div>
+            <span className="font-bold uppercase tracking-wider text-purple-700 dark:text-purple-400">AI Vision Proctoring Active:</span> Fullscreen mode and continuous webcam presence are required. Objective events (such as multiple faces, absence, or camera blockage) are recorded with duration and evidence snapshots for organizer review.
           </div>
         </div>
       )}
@@ -304,7 +315,7 @@ export default async function ContestArenaDashboard(props: { params: Promise<{ i
                 key={cp.id} 
                 contestId={contest.id}
                 problemId={cp.problem.id}
-                requireFullScreen={contest.settings?.proctoringMode === "FULL_SCREEN" || !!contest.settings?.requireFullScreen}
+                requireFullScreen={contest.settings?.proctoringMode === "FULL_SCREEN" || contest.settings?.proctoringMode === "CV_PROCTORED" || !!contest.settings?.requireFullScreen}
                 className="flex items-center justify-between p-6 hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition-colors group cursor-pointer"
               >
                 <div className="flex items-center gap-5">
