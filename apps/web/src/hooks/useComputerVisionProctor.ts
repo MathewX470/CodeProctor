@@ -260,9 +260,9 @@ export function useComputerVisionProctor({
           },
           runningMode: "VIDEO",
           numFaces: 2,
-          minFaceDetectionConfidence: 0.5,
-          minFacePresenceConfidence: 0.5,
-          minTrackingConfidence: 0.5,
+          minFaceDetectionConfidence: 0.7,
+          minFacePresenceConfidence: 0.7,
+          minTrackingConfidence: 0.7,
           outputFaceBlendshapes: false
         });
 

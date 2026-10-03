@@ -26,7 +26,7 @@ export const CV_DEFAULT_THRESHOLDS = {
   blockedStdDevMax: 5,                 // Very low variation indicates solid tape/paper/finger over lens
 
   // Snapshot Capture Constraints
-  minCooldownBetweenSnapshotsMs: 8000, // Throttles snapshot uploads (max 1 per 8s per participant)
+  minCooldownBetweenSnapshotsMs: 4000, // Throttles snapshot uploads (max 1 per 4s per participant)
   snapshotQuality: 0.65,               // JPEG compression ratio
   snapshotWidth: 320,
   snapshotHeight: 240,
