@@ -24,12 +24,18 @@ export default async function DashboardPage() {
   const session = await auth.api.getSession({ headers: await headers() });
   const user = session?.user;
 
-  // Query Database for active/upcoming contests
-  const contests = await prisma.contest.findMany({
-    where: { isDeleted: false },
+  const now = new Date();
+
+  // Query Database for upcoming contests the user hasn't joined
+  const contests = user ? await prisma.contest.findMany({
+    where: { 
+      isDeleted: false,
+      startTime: { gt: now },
+      members: { none: { userId: user.id } }
+    },
     include: { settings: true },
     orderBy: { startTime: "asc" },
-  });
+  }) : [];
 
   const totalProblemsCount = await prisma.problem.count({
     where: { isPublic: true, isDeleted: false },
@@ -101,7 +107,6 @@ export default async function DashboardPage() {
     problemsSolved = solved.length;
 
     // Ongoing Contest
-    const now = new Date();
     const activeContest = await prisma.contest.findFirst({
       where: {
         isDeleted: false,
@@ -112,11 +117,41 @@ export default async function DashboardPage() {
     });
 
     if (activeContest) {
+      const timeDiffMs = activeContest.endTime.getTime() - now.getTime();
+      let timeRemainingStr = "In Progress";
+      if (timeDiffMs > 0) {
+        const hours = Math.floor(timeDiffMs / (1000 * 60 * 60));
+        const mins = Math.floor((timeDiffMs % (1000 * 60 * 60)) / (1000 * 60));
+        timeRemainingStr = hours > 0 ? `${hours}h ${mins}m left` : `${mins}m left`;
+      } else {
+        timeRemainingStr = "Ended";
+      }
+
+      let currentRankStr = "-";
+      const userMember = await prisma.contestMember.findUnique({
+        where: { contestId_userId: { contestId: activeContest.id, userId: user.id } },
+      });
+
+      if (userMember) {
+        const betterScores = await prisma.contestMember.count({
+          where: {
+            contestId: activeContest.id,
+            role: "PARTICIPANT",
+            OR: [
+              { bestScore: { gt: userMember.bestScore } },
+              { bestScore: userMember.bestScore, penalty: { lt: userMember.penalty } },
+            ],
+          },
+        });
+        currentRankStr = (betterScores + 1).toString();
+      }
+
       ongoingContest = {
+        id: activeContest.id,
         title: activeContest.title,
         progress: 0,
-        timeRemaining: "In Progress",
-        currentRank: "-", // Placeholder
+        timeRemaining: timeRemainingStr,
+        currentRank: currentRankStr,
       };
     }
   }
@@ -235,7 +270,7 @@ export default async function DashboardPage() {
                 <div className="font-semibold text-lg text-slate-800 dark:text-zinc-200">#{ongoingContest.currentRank}</div>
               </div>
               <Link
-                href="#enter-arena"
+                href={`/contests/${ongoingContest.id}/arena`}
                 className="w-full sm:w-auto px-6 py-2.5 bg-blue-600 dark:bg-white hover:bg-blue-700 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-semibold text-sm rounded-xl flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-200 dark:shadow-none hover:scale-[1.02] group"
               >
                 <span>Continue</span>
@@ -245,6 +280,36 @@ export default async function DashboardPage() {
           </div>
         </section>
       )}
+
+      {/* 4. UPCOMING CONTESTS */}
+      <section id="contests">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <Clock className="w-5 h-5 text-slate-500 dark:text-zinc-400" />
+            Upcoming Contests
+          </h2>
+        </div>
+        {contests.length === 0 ? (
+          <div className="p-12 border border-slate-200 dark:border-zinc-800/80 rounded-2xl bg-white dark:bg-zinc-900/40 text-center text-sm text-slate-500 dark:text-zinc-500 shadow-sm dark:shadow-none">
+            No timed tournaments are currently scheduled. Check back soon!
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {contests.map((c) => (
+              <ContestCard
+                key={c.id}
+                id={c.id}
+                title={c.title}
+                description={c.description}
+                startTime={c.startTime}
+                endTime={c.endTime}
+                duration={c.duration}
+                settings={c.settings}
+              />
+            ))}
+          </div>
+        )}
+      </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
@@ -312,35 +377,7 @@ export default async function DashboardPage() {
             </div>
           </section>
 
-          {/* 4. UPCOMING CONTESTS */}
-          <section id="contests">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Clock className="w-5 h-5 text-slate-500 dark:text-zinc-400" />
-                Upcoming Contests
-              </h2>
-            </div>
-            {contests.length === 0 ? (
-              <div className="p-12 border border-slate-200 dark:border-zinc-800/80 rounded-2xl bg-white dark:bg-zinc-900/40 text-center text-sm text-slate-500 dark:text-zinc-500 shadow-sm dark:shadow-none">
-                No timed tournaments are currently scheduled. Check back soon!
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {contests.map((c) => (
-                  <ContestCard
-                    key={c.id}
-                    id={c.id}
-                    title={c.title}
-                    description={c.description}
-                    startTime={c.startTime}
-                    endTime={c.endTime}
-                    duration={c.duration}
-                    settings={c.settings}
-                  />
-                ))}
-              </div>
-            )}
-          </section>
+
 
         </div>
 
