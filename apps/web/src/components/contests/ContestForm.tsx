@@ -69,7 +69,11 @@ export function ContestForm({ isAdmin, redirectPath }: ContestFormProps) {
 
     if (res.success) {
       toast.success("Contest created successfully!");
-      router.push(redirectPath);
+      if (redirectPath.includes("{id}")) {
+        router.push(redirectPath.replace("{id}", res.contestId || ""));
+      } else {
+        router.push(redirectPath);
+      }
       router.refresh();
     } else {
       toast.error(res.error || "Failed to create contest.");

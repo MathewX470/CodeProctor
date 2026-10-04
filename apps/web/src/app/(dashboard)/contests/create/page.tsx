@@ -29,7 +29,7 @@ export default async function CreateUserContestPage() {
         </div>
       </div>
 
-      <ContestForm isAdmin={false} redirectPath="/contests" />
+      <ContestForm isAdmin={false} redirectPath="/contests/{id}/manage" />
     </div>
   );
 }
