@@ -706,11 +706,11 @@ export function ProblemIDE({ problem }: { problem: ProblemData }) {
                                 {!tc.isHidden && (
                                   <>
                                     <div className="text-slate-500 mt-2">Input:</div>
-                                    <div className="text-slate-800 dark:text-zinc-300">{tc.input}</div>
+                                    <div className="text-slate-800 dark:text-zinc-300 whitespace-pre-wrap">{tc.input}</div>
                                     <div className="text-slate-500 mt-2">Expected:</div>
-                                    <div className="text-slate-800 dark:text-zinc-300">{tc.expectedOutput}</div>
+                                    <div className="text-slate-800 dark:text-zinc-300 whitespace-pre-wrap">{tc.expectedOutput}</div>
                                     <div className="text-slate-500 mt-2">Actual:</div>
-                                    <div className="text-slate-800 dark:text-zinc-300">{tc.actualOutput}</div>
+                                    <div className="text-slate-800 dark:text-zinc-300 whitespace-pre-wrap">{tc.actualOutput}</div>
                                   </>
                                 )}
                               </div>
