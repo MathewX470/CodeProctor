@@ -116,6 +116,8 @@ export function ProblemIDE({ problem }: { problem: ProblemData }) {
   const executeCode = async (actionType: "RUN" | "SUBMIT") => {
     if (actionType === "RUN") setIsRunning(true);
     else setIsSubmitting(true);
+
+    setOutputTab("result");
     
     try {
       // 1. Submit Code
