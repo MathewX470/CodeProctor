@@ -95,7 +95,11 @@ export default async function UserContestsPage() {
           <div className="mt-auto space-y-2.5 pt-4 border-t border-slate-100 dark:border-zinc-800/80">
             <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-zinc-400">
               <Calendar className="w-4 h-4 opacity-70 text-blue-500" />
-              {new Date(contest.startTime).toLocaleDateString()} at {new Date(contest.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+              <span>
+                {new Date(contest.startTime).toLocaleDateString()} • {new Date(contest.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} 
+                <span className="mx-1.5 text-slate-400 dark:text-zinc-500">—</span> 
+                {new Date(contest.endTime).toLocaleDateString()} • {new Date(contest.endTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+              </span>
             </div>
             <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-zinc-400">
               <Clock className="w-4 h-4 opacity-70 text-amber-500" />
@@ -138,14 +142,8 @@ export default async function UserContestsPage() {
             </>
           ) : (
             <Link 
-              href={`/contests/${contest.id}`}
-              className={`flex-1 text-center py-2 px-4 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 ${
-                stateType === "active"
-                  ? "bg-green-600 hover:bg-green-700 text-white shadow-sm"
-                  : stateType === "upcoming"
-                  ? "bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
-                  : "bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-900"
-              }`}
+              href={stateType === "active" ? `/contests/${contest.id}/arena` : `/contests/${contest.id}`}
+              className="flex-1 text-center py-2 px-4 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 bg-blue-600 dark:bg-white hover:bg-blue-700 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 shadow-sm"
             >
               {stateType === "active" ? (
                 <>
@@ -310,7 +308,11 @@ export default async function UserContestsPage() {
                     <div className="mt-auto space-y-2.5 pt-4 border-t border-slate-100 dark:border-zinc-800">
                       <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-zinc-400">
                         <Calendar className="w-4 h-4 opacity-70 text-blue-500" />
-                        {new Date(contest.startTime).toLocaleDateString()} at {new Date(contest.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        <span>
+                          {new Date(contest.startTime).toLocaleDateString()} • {new Date(contest.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} 
+                          <span className="mx-1.5 text-slate-400 dark:text-zinc-500">—</span> 
+                          {new Date(contest.endTime).toLocaleDateString()} • {new Date(contest.endTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        </span>
                       </div>
                       <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-zinc-400">
                         <Clock className="w-4 h-4 opacity-70 text-amber-500" />
