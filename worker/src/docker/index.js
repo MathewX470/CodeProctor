@@ -131,8 +131,7 @@ export async function runTestCase(containerName, tempDirPath, runCommand, input,
           memoryUsed = parseInt(memMatch[1]);
         }
       } catch (err) {
-        // Fallback to infrastructure time if parsing fails
-        console.error("Failed to parse time:", err.message);
+        // Fallback to infrastructure time if parsing fails (Expected since we removed GNU time)
       }
       
       // If code is null, it was killed by our timeout

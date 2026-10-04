@@ -362,10 +362,9 @@ export function ProblemIDE({ problem }: { problem: ProblemData }) {
                     ) : (
                       <div className="w-full">
                         <div className="grid grid-cols-12 text-xs font-medium text-slate-500 dark:text-zinc-400 uppercase tracking-wider py-3 px-4 border-b border-slate-200 dark:border-zinc-800 sticky top-0 bg-white dark:bg-zinc-900 z-10">
-                          <div className="col-span-4">Status</div>
-                          <div className="col-span-3">Language</div>
-                          <div className="col-span-2">Runtime</div>
-                          <div className="col-span-3">Memory</div>
+                          <div className="col-span-5">Status</div>
+                          <div className="col-span-4">Language</div>
+                          <div className="col-span-3">Runtime</div>
                         </div>
                         <div className="divide-y divide-slate-100 dark:divide-zinc-800/50">
                           {submissionsList.map((sub, i) => {
@@ -379,24 +378,20 @@ export function ProblemIDE({ problem }: { problem: ProblemData }) {
                                 onClick={() => loadPastSubmission(sub.id)}
                                 className="grid grid-cols-12 items-center text-sm py-3 px-4 hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer"
                               >
-                                <div className="col-span-4 flex flex-col">
+                                <div className="col-span-5 flex flex-col">
                                   <span className={`font-semibold ${isAccepted ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}`}>
                                     {sub.verdict === "ACCEPTED" ? "Accepted" : sub.verdict?.replace(/_/g, " ")}
                                   </span>
                                   <span className="text-xs text-slate-500 dark:text-zinc-500 mt-0.5">{formattedDate}</span>
                                 </div>
-                                <div className="col-span-3 text-slate-700 dark:text-zinc-300">
+                                <div className="col-span-4 text-slate-700 dark:text-zinc-300">
                                   <span className="inline-flex px-2 py-0.5 rounded-full bg-slate-100 dark:bg-zinc-800 text-xs border border-slate-200 dark:border-zinc-700">
                                     {sub.languageName}
                                   </span>
                                 </div>
-                                <div className="col-span-2 flex items-center gap-1.5 text-slate-600 dark:text-zinc-400">
+                                <div className="col-span-3 flex items-center gap-1.5 text-slate-600 dark:text-zinc-400">
                                   <Clock className="w-3 h-3 opacity-70" />
                                   <span>{sub.executionTime || 0} ms</span>
-                                </div>
-                                <div className="col-span-3 flex items-center gap-1.5 text-slate-600 dark:text-zinc-400">
-                                  <MemoryStick className="w-3 h-3 opacity-70" />
-                                  <span>{((sub.memoryUsed || 0) / 1024).toFixed(1)} MB</span>
                                 </div>
                               </div>
                             );
@@ -522,33 +517,17 @@ export function ProblemIDE({ problem }: { problem: ProblemData }) {
                                     </div>
                                   </div>
                                   
-                                  <div className="hidden sm:block w-px h-20 bg-slate-200 dark:bg-zinc-800"></div>
-
-                                  <div 
-                                    onClick={() => setActiveChart("memory")}
-                                    className={`flex-1 p-3 rounded-lg cursor-pointer transition-colors border-2 ${activeChart === "memory" ? "border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800/50" : "border-transparent hover:bg-slate-50 dark:hover:bg-zinc-800/30"}`}
-                                  >
-                                    <div className="text-slate-500 dark:text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5"><MemoryStick className="w-3.5 h-3.5"/> Memory</div>
-                                    <div className="flex items-baseline gap-2 mb-1">
-                                      <div className="text-3xl font-black text-slate-800 dark:text-zinc-100">{(submissionResult.memoryUsed / 1024).toFixed(1)}</div>
-                                      <div className="text-slate-500 dark:text-zinc-400 font-medium">MB</div>
-                                    </div>
-                                    <div className="text-sm font-semibold text-slate-600 dark:text-zinc-300 flex items-center gap-1.5">
-                                      Beats <span className="text-green-600 dark:text-green-400 text-base">{analyticsData.memoryPercentile}%</span>
-                                      <Trophy className="w-4 h-4 text-green-500" />
-                                    </div>
-                                  </div>
                                 </div>
 
                                 {/* Histogram */}
                                 <div className="mt-4 border-t border-slate-100 dark:border-zinc-800 pt-6">
                                   <div className="text-xs font-bold text-slate-500 dark:text-zinc-400 mb-6 flex justify-between">
-                                    <span>{activeChart === "runtime" ? "Runtime" : "Memory"} Distribution</span>
+                                    <span>Runtime Distribution</span>
                                     <span className="font-medium bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 rounded">{analyticsData.totalSubmissions} users</span>
                                   </div>
                                   <div className="h-32 flex items-end gap-[2px] border-b-2 border-slate-200 dark:border-zinc-800 pb-1 relative px-2">
-                                    {(activeChart === "runtime" ? analyticsData.runtimeDistribution : analyticsData.memoryDistribution).map((bucket: any, idx: number) => {
-                                      const maxCount = Math.max(...(activeChart === "runtime" ? analyticsData.runtimeDistribution : analyticsData.memoryDistribution).map((b: any) => b.count), 1);
+                                    {analyticsData.runtimeDistribution.map((bucket: any, idx: number) => {
+                                      const maxCount = Math.max(...analyticsData.runtimeDistribution.map((b: any) => b.count), 1);
                                       const heightPercent = (bucket.count / maxCount) * 100;
                                       return (
                                         <div key={idx} className="flex-1 flex flex-col justify-end items-center group relative h-full">

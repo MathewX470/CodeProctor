@@ -131,6 +131,10 @@ export async function executeSubmission(jobData) {
          firstFailedVerdict = tcVerdict;
       }
 
+      const outputToSave = (tcVerdict === 'RUNTIME_ERROR' || tcVerdict === 'TIME_LIMIT_EXCEEDED') 
+        ? tcResult.stderr || tcResult.stdout 
+        : tcResult.stdout;
+
       // Save SubmissionTestCase
       await prisma.submissionTestCase.upsert({
          where: {
@@ -145,13 +149,13 @@ export async function executeSubmission(jobData) {
            verdict: tcVerdict,
            executionTime: tcExecutionTime,
            memoryUsed: tcMemory,
-           actualOutput: tcResult.stdout.substring(0, 500) // Truncate large outputs
+           actualOutput: outputToSave.substring(0, 500) // Truncate large outputs
          },
          update: {
            verdict: tcVerdict,
            executionTime: tcExecutionTime,
            memoryUsed: tcMemory,
-           actualOutput: tcResult.stdout.substring(0, 500)
+           actualOutput: outputToSave.substring(0, 500)
          }
       });
     }
