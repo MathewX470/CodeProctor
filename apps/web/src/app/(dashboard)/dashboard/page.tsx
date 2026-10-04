@@ -270,7 +270,7 @@ export default async function DashboardPage() {
                 <div className="font-semibold text-lg text-slate-800 dark:text-zinc-200">#{ongoingContest.currentRank}</div>
               </div>
               <Link
-                href={`/contests/${ongoingContest.id}/arena`}
+                href={`/contests/${ongoingContest.id}`}
                 className="w-full sm:w-auto px-6 py-2.5 bg-blue-600 dark:bg-white hover:bg-blue-700 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-semibold text-sm rounded-xl flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-200 dark:shadow-none hover:scale-[1.02] group"
               >
                 <span>Continue</span>
