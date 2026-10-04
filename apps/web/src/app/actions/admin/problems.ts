@@ -47,7 +47,7 @@ export async function getAdminProblemsServer() {
 export async function getProblemBySlugServer(slug: string) {
   const { session, isSuperAdmin, permissions } = await getSessionWithRoles();
   
-  if (!session?.user || (!isSuperAdmin && !permissions.includes("RBAC_PROBLEMS"))) {
+  if (!session?.user) {
     throw new Error("Unauthorized");
   }
 
@@ -63,7 +63,8 @@ export async function getProblemBySlugServer(slug: string) {
 
   if (!problem) throw new Error("Problem not found");
 
-  if (!problem.isPublic && problem.createdById !== session.user.id) {
+  const isAdmin = isSuperAdmin || permissions.includes("RBAC_PROBLEMS");
+  if (!problem.isPublic && problem.createdById !== session.user.id && !isAdmin) {
     throw new Error("You do not have access to this private problem.");
   }
 

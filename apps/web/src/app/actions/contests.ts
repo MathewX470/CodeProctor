@@ -189,7 +189,7 @@ export async function getContestForManagement(contestId: string) {
       problems: {
         include: {
           problem: {
-            select: { id: true, title: true, difficulty: true }
+            select: { id: true, title: true, difficulty: true, slug: true, createdById: true, isPublic: true }
           }
         },
         orderBy: { order: 'asc' }
@@ -1619,4 +1619,136 @@ export async function pardonMemberServer(contestId: string, targetUserId: string
 
   revalidatePath(`/contests/${contestId}/manage`);
   return { success: true };
+}
+
+export async function cloneProblemForContestAction(contestId: string, problemId: string) {
+  const session = await getSessionWithRoles();
+  if (!session.session?.user) return { success: false, error: "Unauthorized" };
+
+  const userId = session.session.user.id;
+
+  // 1. Check permissions
+  const member = await prisma.contestMember.findUnique({
+    where: { contestId_userId: { contestId, userId } }
+  });
+
+  if (!member || (member.role !== "OWNER" && member.role !== "MODERATOR")) {
+    const isAdmin = session.isSuperAdmin || session.permissions.includes("RBAC_CONTESTS");
+    if (!isAdmin) {
+      return { success: false, error: "You don't have permission to modify this contest" };
+    }
+  }
+
+  try {
+    const newProblemId = await prisma.$transaction(async (tx) => {
+      // 2. Fetch original problem
+      const original = await tx.problem.findUnique({
+        where: { id: problemId },
+        include: {
+          testCases: true,
+          samples: true,
+          languageTemplates: true,
+        }
+      });
+
+      if (!original) throw new Error("Original problem not found");
+
+      // 3. Create clone
+      const cloneSlug = `${original.slug}-clone-${Math.random().toString(36).substring(2, 8)}`;
+      const cloned = await tx.problem.create({
+        data: {
+          title: `${original.title} (Clone)`,
+          slug: cloneSlug,
+          description: original.description,
+          difficulty: original.difficulty,
+          timeLimit: original.timeLimit,
+          memoryLimit: original.memoryLimit,
+          isPublic: false, // Ensure it doesn't pollute the public bank
+          createdById: userId,
+        }
+      });
+
+      // 4. Clone Test Cases
+      if (original.testCases.length > 0) {
+        await tx.testCase.createMany({
+          data: original.testCases.map(tc => ({
+            problemId: cloned.id,
+            input: tc.input,
+            expectedOutput: tc.expectedOutput,
+            isHidden: tc.isHidden,
+            weight: tc.weight,
+          }))
+        });
+      }
+
+      // 5. Clone Samples
+      if (original.samples.length > 0) {
+        await tx.problemSample.createMany({
+          data: original.samples.map(s => ({
+            problemId: cloned.id,
+            input: s.input,
+            expectedOutput: s.expectedOutput,
+            explanation: s.explanation,
+            order: s.order,
+          }))
+        });
+      }
+
+      // 6. Clone Templates
+      if (original.languageTemplates.length > 0) {
+        await tx.languageTemplate.createMany({
+          data: original.languageTemplates.map(lt => ({
+            problemId: cloned.id,
+            languageId: lt.languageId,
+            boilerplate: lt.boilerplate,
+          }))
+        });
+      }
+
+      // 7. Swap the ID in the contest
+      await tx.contestProblem.update({
+        where: { contestId_problemId: { contestId, problemId } },
+        data: { problemId: cloned.id }
+      });
+
+      return cloned.id;
+    });
+
+    revalidatePath(`/contests/${contestId}/manage`);
+    return { success: true, newProblemId };
+  } catch (error: any) {
+    console.error("Clone problem error:", error);
+    return { success: false, error: error.message || "Failed to clone problem" };
+  }
+}
+
+export async function updateProblemPointsInContest(contestId: string, problemId: string, points: number) {
+  const session = await getSessionWithRoles();
+  if (!session.session?.user) return { success: false, error: "Unauthorized" };
+
+  const userId = session.session.user.id;
+
+  const member = await prisma.contestMember.findUnique({
+    where: { contestId_userId: { contestId, userId } }
+  });
+
+  if (!member || (member.role !== "OWNER" && member.role !== "MODERATOR")) {
+    const isAdmin = session.isSuperAdmin || session.permissions.includes("RBAC_CONTESTS");
+    if (!isAdmin) {
+      return { success: false, error: "You don't have permission to modify this contest" };
+    }
+  }
+
+  try {
+    await prisma.contestProblem.update({
+      where: { contestId_problemId: { contestId, problemId } },
+      data: { points }
+    });
+
+    revalidatePath(`/contests/${contestId}/manage`);
+    return { success: true };
+  } catch (error: any) {
+    console.error("Update points error:", error);
+    return { success: false, error: error.message || "Failed to update points" };
+  }
 }
