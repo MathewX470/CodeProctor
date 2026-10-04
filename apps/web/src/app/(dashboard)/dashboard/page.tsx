@@ -39,8 +39,21 @@ export default async function DashboardPage() {
   let recentActivity: any[] = [];
   let problemsSolved = 0;
   let ongoingContest: any = null;
+  let userRank: any = null;
 
   if (user) {
+    // Fetch or Create Rank
+    userRank = await prisma.userRank.upsert({
+      where: { userId: user.id },
+      update: {},
+      create: { userId: user.id, rating: 1200, problemsSolved: 0 },
+    });
+
+    // Calculate Global Rank on-the-fly
+    const usersWithHigherRating = await prisma.userRank.count({
+      where: { rating: { gt: userRank.rating } }
+    });
+    userRank.globalRank = usersWithHigherRating + 1;
     // Real submissions
     const rawSubmissions = await prisma.submission.findMany({
       where: { userId: user.id },
@@ -176,7 +189,7 @@ export default async function DashboardPage() {
           <div>
             <div className="text-sm font-medium text-slate-500 dark:text-zinc-500 mb-1">Current Rating</div>
             <div className="text-2xl font-bold text-slate-900 dark:text-white flex items-baseline gap-2">
-              Unranked <span className="text-xs font-semibold text-slate-400 dark:text-zinc-600">N/A</span>
+              {userRank?.rating || "Unranked"} <span className="text-xs font-semibold text-slate-400 dark:text-zinc-600">N/A</span>
             </div>
           </div>
         </div>
@@ -188,7 +201,7 @@ export default async function DashboardPage() {
           <div>
             <div className="text-sm font-medium text-slate-500 dark:text-zinc-500 mb-1">Global Rank</div>
             <div className="text-2xl font-bold text-slate-900 dark:text-white flex items-baseline gap-2">
-              Unranked <span className="text-xs font-semibold text-slate-400 dark:text-zinc-600">N/A</span>
+              {userRank?.globalRank ? `#${userRank.globalRank}` : "Unranked"} <span className="text-xs font-semibold text-slate-400 dark:text-zinc-600">N/A</span>
             </div>
           </div>
         </div>
