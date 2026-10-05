@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Search, Loader2, Plus, Trash2, Globe, Lock, SearchX } from "lucide-react";
+import { Search, Loader2, Plus, Trash2, Globe, Lock, SearchX, Copy, Edit2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
-import { searchProblemsForContest, addProblemToContest, removeProblemFromContest } from "@/app/actions/contests";
+import { searchProblemsForContest, addProblemToContest, removeProblemFromContest, cloneProblemForContestAction, updateProblemPointsInContest } from "@/app/actions/contests";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 interface ProblemItem {
   id: string;
@@ -74,6 +75,43 @@ export function ContestManagerClient({ contest }: { contest: any }) {
     }
   };
 
+  const handleCloneProblem = async (problemId: string) => {
+    if (!window.confirm("This will create a private copy of this problem just for this contest. You will then be able to freely edit its test cases without affecting the global version. Continue?")) return;
+    
+    setIsUpdating(problemId + "-clone");
+    const res = await cloneProblemForContestAction(contest.id, problemId);
+    setIsUpdating(null);
+
+    if (res.success) {
+      toast.success("Problem cloned successfully! You can now safely edit it.");
+    } else {
+      toast.error(res.error || "Failed to clone problem");
+    }
+  };
+
+  const handleEditPoints = async (problemId: string, currentPoints: number) => {
+    const pointsStr = window.prompt("Enter new point value for this problem:", currentPoints.toString());
+    if (!pointsStr) return;
+    
+    const points = parseInt(pointsStr, 10);
+    if (isNaN(points) || points <= 0) {
+      toast.error("Invalid point value");
+      return;
+    }
+
+    if (points === currentPoints) return;
+
+    setIsUpdating(problemId + "-points");
+    const res = await updateProblemPointsInContest(contest.id, problemId, points);
+    setIsUpdating(null);
+
+    if (res.success) {
+      toast.success("Points updated!");
+    } else {
+      toast.error(res.error || "Failed to update points");
+    }
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
       {/* LEFT PANE: CURRENT PROBLEMS */}
@@ -107,21 +145,45 @@ export function ContestManagerClient({ contest }: { contest: any }) {
                       }`}>
                         {cp.problem.difficulty}
                       </span>
-                      <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium">
-                        {cp.points} POINTS
-                      </span>
+                      <button 
+                        onClick={() => handleEditPoints(cp.problemId, cp.points)}
+                        disabled={isUpdating === cp.problemId + "-points"}
+                        className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-1 cursor-pointer"
+                        title="Edit Points"
+                      >
+                        {isUpdating === cp.problemId + "-points" ? <Loader2 className="w-3 h-3 animate-spin" /> : cp.points + " POINTS"}
+                      </button>
                     </div>
                   </div>
                 </div>
-                
-                <button 
-                  onClick={() => handleRemoveProblem(cp.problemId)}
-                  disabled={isUpdating === cp.problemId}
-                  className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
-                  title="Remove from contest"
-                >
-                  {isUpdating === cp.problemId ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                </button>
+                <div className="flex items-center gap-1">
+                  {cp.problem.isPublic ? (
+                    <button 
+                      onClick={() => handleCloneProblem(cp.problemId)}
+                      disabled={isUpdating === cp.problemId + "-clone"}
+                      className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors"
+                      title="Customize for this contest"
+                    >
+                      {isUpdating === cp.problemId + "-clone" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Copy className="w-4 h-4" />}
+                    </button>
+                  ) : (
+                    <Link 
+                      href={`/problems/${cp.problem.slug}/edit`}
+                      className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-md transition-colors block"
+                      title="Edit this customized problem"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </Link>
+                  )}
+                  <button 
+                    onClick={() => handleRemoveProblem(cp.problemId)}
+                    disabled={isUpdating === cp.problemId}
+                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
+                    title="Remove from contest"
+                  >
+                    {isUpdating === cp.problemId ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
             ))}
           </div>

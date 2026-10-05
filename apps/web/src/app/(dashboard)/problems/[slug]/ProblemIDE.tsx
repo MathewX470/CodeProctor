@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { Panel, Group, Separator } from "react-resizable-panels";
 import Editor from "@monaco-editor/react";
 import { useTheme } from "next-themes";
-import { Play, Send, CheckCircle2, XCircle, AlertCircle, Loader2, Code2, Clock, MemoryStick, Tag, ChevronDown, Terminal, Trophy } from "lucide-react";
+import { Play, Send, CheckCircle2, XCircle, AlertCircle, Loader2, Code2, Clock, MemoryStick, Tag, ChevronDown, Terminal, Trophy, X } from "lucide-react";
 import { toast } from "sonner";
 import dynamic from "next/dynamic";
 import "@uiw/react-markdown-preview/markdown.css";
@@ -50,6 +50,7 @@ export function ProblemIDE({ problem }: { problem: ProblemData }) {
   const [outputTab, setOutputTab] = useState<"testcases" | "result">("testcases");
   const [leftTab, setLeftTab] = useState<"description" | "submissions">("description");
   const [rightTab, setRightTab] = useState<"code" | "submission">("code");
+  const [showSubmissionTab, setShowSubmissionTab] = useState(false);
   const [submissionResult, setSubmissionResult] = useState<any>(null);
   const [submissionsList, setSubmissionsList] = useState<any[]>(problem.submissions || []);
   const [analyticsData, setAnalyticsData] = useState<any>(null);
@@ -84,6 +85,7 @@ export function ProblemIDE({ problem }: { problem: ProblemData }) {
         // Do not override user's current working code in selectedLang.
         // We will just show data.sourceCode in the read-only submission tab!
         setRightTab("submission");
+        setShowSubmissionTab(true);
         setOutputTab("result");
         
         // Fetch analytics if it was accepted
@@ -116,6 +118,9 @@ export function ProblemIDE({ problem }: { problem: ProblemData }) {
   const executeCode = async (actionType: "RUN" | "SUBMIT") => {
     if (actionType === "RUN") setIsRunning(true);
     else setIsSubmitting(true);
+
+    setOutputTab("result");
+    setShowSubmissionTab(true);
     
     try {
       // 1. Submit Code
@@ -430,23 +435,35 @@ export function ProblemIDE({ problem }: { problem: ProblemData }) {
                     >
                       <Code2 className="w-3.5 h-3.5" /> Code
                     </button>
-                    {submissionResult && submissionResult.id && (
-                      <button 
-                        onClick={() => setRightTab("submission")}
-                        className={`py-2.5 text-xs font-medium border-b-2 flex items-center gap-2 transition-colors ${
-                          rightTab === "submission" 
-                            ? "border-blue-600 text-blue-600 dark:text-blue-400" 
-                            : "border-transparent text-slate-500 hover:text-slate-700 dark:text-zinc-400 dark:hover:text-zinc-300"
-                        }`}
-                      >
-                        {submissionResult.verdict === "ACCEPTED" ? (
-                          <><CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> <span className="text-green-600 dark:text-green-500">Accepted</span></>
-                        ) : submissionResult.verdict ? (
-                          <><XCircle className="w-3.5 h-3.5 text-red-500" /> <span className="text-red-600 dark:text-red-500">{submissionResult.verdict.replace(/_/g, " ")}</span></>
-                        ) : (
-                          <><Clock className="w-3.5 h-3.5" /> Submission</>
-                        )}
-                      </button>
+                    {submissionResult && submissionResult.id && showSubmissionTab && (
+                      <div className="flex items-center group border-b-2 border-transparent">
+                        <button 
+                          onClick={() => setRightTab("submission")}
+                          className={`py-2.5 pl-2 text-xs font-medium flex items-center gap-2 transition-colors ${
+                            rightTab === "submission" 
+                              ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 -mb-[2px]" 
+                              : "text-slate-500 hover:text-slate-700 dark:text-zinc-400 dark:hover:text-zinc-300"
+                          }`}
+                        >
+                          {submissionResult.verdict === "ACCEPTED" ? (
+                            <><CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> <span className="text-green-600 dark:text-green-500">Accepted</span></>
+                          ) : submissionResult.verdict ? (
+                            <><XCircle className="w-3.5 h-3.5 text-red-500" /> <span className="text-red-600 dark:text-red-500">{submissionResult.verdict.replace(/_/g, " ")}</span></>
+                          ) : (
+                            <><Clock className="w-3.5 h-3.5" /> Submission</>
+                          )}
+                        </button>
+                        <button 
+                          onClick={() => { setShowSubmissionTab(false); setRightTab("code"); }}
+                          className={`ml-1 mr-2 p-1 rounded transition-opacity ${
+                            rightTab === "submission" 
+                              ? "opacity-100 text-slate-400 hover:text-slate-700 dark:hover:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-800 -mb-[2px]" 
+                              : "opacity-0 group-hover:opacity-100 text-slate-400 hover:text-slate-700 dark:hover:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-800"
+                          }`}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     )}
                   </div>
 
@@ -689,11 +706,11 @@ export function ProblemIDE({ problem }: { problem: ProblemData }) {
                                 {!tc.isHidden && (
                                   <>
                                     <div className="text-slate-500 mt-2">Input:</div>
-                                    <div className="text-slate-800 dark:text-zinc-300">{tc.input}</div>
+                                    <div className="text-slate-800 dark:text-zinc-300 whitespace-pre-wrap">{tc.input}</div>
                                     <div className="text-slate-500 mt-2">Expected:</div>
-                                    <div className="text-slate-800 dark:text-zinc-300">{tc.expectedOutput}</div>
+                                    <div className="text-slate-800 dark:text-zinc-300 whitespace-pre-wrap">{tc.expectedOutput}</div>
                                     <div className="text-slate-500 mt-2">Actual:</div>
-                                    <div className="text-slate-800 dark:text-zinc-300">{tc.actualOutput}</div>
+                                    <div className="text-slate-800 dark:text-zinc-300 whitespace-pre-wrap">{tc.actualOutput}</div>
                                   </>
                                 )}
                               </div>

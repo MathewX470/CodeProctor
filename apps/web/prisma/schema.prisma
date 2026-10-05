@@ -34,6 +34,8 @@ model User {
   filesUploaded         File[]                  @relation("FilesUploaded")
   notificationsReceived NotificationRecipient[] @relation("NotificationsReceived")
   auditLogsActed        AuditLog[]              @relation("AuditActor")
+  
+  userRank              UserRank?               @relation("UserRankToUser")
 
   @@unique([email])
   @@map("user")
@@ -106,6 +108,20 @@ model UserRole {
 
   @@unique([userId, roleId])
   @@map("user_role")
+}
+
+model UserRank {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation("UserRankToUser", fields: [userId], references: [id], onDelete: Cascade)
+  
+  rating         Int      @default(1200)
+  globalRank     Int?
+  problemsSolved Int      @default(0)
+  
+  updatedAt      DateTime @updatedAt
+
+  @@index([rating(sort: Desc)])
 }
 
 // ============================================================
