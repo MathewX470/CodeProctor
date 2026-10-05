@@ -23,6 +23,7 @@ services:
       # Provide these via a .env file in the same directory as this compose file
       - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
+      - WORKER_CONCURRENCY=${WORKER_CONCURRENCY:-5}
 
   runner-c:
     image: runner-c:latest
