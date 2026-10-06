@@ -224,7 +224,7 @@ export default async function DashboardPage() {
           <div>
             <div className="text-sm font-medium text-slate-500 dark:text-zinc-500 mb-1">Current Rating</div>
             <div className="text-2xl font-bold text-slate-900 dark:text-white flex items-baseline gap-2">
-              {userRank?.rating || "Unranked"} <span className="text-xs font-semibold text-slate-400 dark:text-zinc-600">N/A</span>
+              {userRank?.rating || "Unranked"}
             </div>
           </div>
         </div>
@@ -236,7 +236,7 @@ export default async function DashboardPage() {
           <div>
             <div className="text-sm font-medium text-slate-500 dark:text-zinc-500 mb-1">Global Rank</div>
             <div className="text-2xl font-bold text-slate-900 dark:text-white flex items-baseline gap-2">
-              {userRank?.globalRank ? `#${userRank.globalRank}` : "Unranked"} <span className="text-xs font-semibold text-slate-400 dark:text-zinc-600">N/A</span>
+              {userRank?.globalRank ? `#${userRank.globalRank}` : "Unranked"}
             </div>
           </div>
         </div>

@@ -169,6 +169,46 @@ export async function executeSubmission(jobData) {
     
     // 5. Finalize Submission Verdict
     await updateSubmissionVerdict(submissionId, aggregateVerdict, maxExecutionTime, maxMemory);
+    
+    // Update User Rank if it's an official SUBMIT and it passed
+    console.log(`[Rank] Checking if we should update rank for sub-${submissionId}. isRun=${isRun}, verdict=${aggregateVerdict}, userId=${submission.userId}`);
+    if (!isRun && aggregateVerdict === 'ACCEPTED' && submission.userId) {
+      const previousSolved = await prisma.submission.findFirst({
+        where: {
+          userId: submission.userId,
+          problemId: submission.problemId,
+          verdict: 'ACCEPTED',
+          id: { not: submissionId }
+        }
+      });
+
+      console.log(`[Rank] previousSolved = ${previousSolved ? previousSolved.id : 'null'}`);
+
+      if (!previousSolved) {
+        let points = 10;
+        if (submission.problem?.difficulty === 'EASY') points = 10;
+        else if (submission.problem?.difficulty === 'MEDIUM') points = 30;
+        else if (submission.problem?.difficulty === 'HARD') points = 50;
+
+        console.log(`[Rank] Awarding ${points} points to user ${submission.userId}!`);
+
+        const updatedRank = await prisma.userRank.upsert({
+          where: { userId: submission.userId },
+          update: {
+            problemsSolved: { increment: 1 },
+            rating: { increment: points }
+          },
+          create: {
+            userId: submission.userId,
+            problemsSolved: 1,
+            rating: 1200 + points
+          }
+        });
+        
+        console.log(`[Rank] Successfully updated! New Rating: ${updatedRank.rating}, Problems Solved: ${updatedRank.problemsSolved}`);
+      }
+    }
+
     return { verdict: aggregateVerdict };
 
   } catch (error) {
