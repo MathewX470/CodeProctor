@@ -55,7 +55,7 @@ export function DashboardNav() {
     { label: "Home", href: "/dashboard" },
     { label: "Contests", href: "/contests" },
     { label: "Practice", href: "/problems" },
-    { label: "Submissions", href: "/activity" },
+    { label: "Submissions", href: "/submissions" },
     { label: "Leaderboard", href: "/leaderboard" },
   ];
 
