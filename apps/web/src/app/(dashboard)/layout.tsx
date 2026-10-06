@@ -6,7 +6,6 @@ import { useSession } from "@/lib/auth-client";
 import { DashboardNav } from "@/components/dashboard/DashboardNav";
 import { AnimatedGrid } from "@/components/dashboard/AnimatedGrid";
 import { Loader2, ShieldAlert } from "lucide-react";
-import { Toaster } from "sonner";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -87,20 +86,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* React Bits style animated background */}
       {!hideNavbar && !isIdePage && <AnimatedGrid gridSize={40} className="fixed z-0" />}
 
-      <Toaster
-        position="bottom-right"
-        theme="dark"
-        toastOptions={{
-          style: {
-            background: "#18181b",
-            border: "1px solid #27272a",
-            color: "#fff",
-            borderRadius: "0.75rem",
-            fontFamily: "var(--font-inter), sans-serif",
-          },
-        }}
-      />
-      
       {/* Universal Command Header (Hidden during Fullscreen tests and Contest IDE) */}
       {!hideNavbar && <DashboardNav />}
 

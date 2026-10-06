@@ -327,11 +327,15 @@ export function ArenaIDE({
 
       const { submissionId } = await res.json();
       let pollAttempts = 0;
+      let isFinished = false;
+      let isFetching = false;
 
       // Poll submission status with ref and timeout
       const poll = setInterval(async () => {
+        if (isFinished || isFetching) return;
         pollAttempts++;
         if (pollAttempts > 45) {
+          isFinished = true;
           clearInterval(poll);
           pollRef.current = null;
           if (actionType === "RUN") setIsRunning(false);
@@ -340,6 +344,7 @@ export function ArenaIDE({
           return;
         }
 
+        isFetching = true;
         try {
           const pollRes = await fetch(`/api/submissions/${submissionId}`);
           if (!pollRes.ok) return;
@@ -348,6 +353,7 @@ export function ArenaIDE({
           setSubmissionResult(data);
 
           if (data.status === "COMPLETED" || data.status === "FINISHED") {
+            isFinished = true;
             clearInterval(poll);
             pollRef.current = null;
             if (actionType === "RUN") setIsRunning(false);
@@ -388,6 +394,8 @@ export function ArenaIDE({
           }
         } catch (e) {
           console.error("Polling error", e);
+        } finally {
+          isFetching = false;
         }
       }, 1000);
 
