@@ -37,7 +37,15 @@ export default async function ProfilePage() {
   });
 
   const rating = userRank?.rating || 1200;
-  const globalRank = userRank?.globalRank ? `#${userRank.globalRank}` : "Unranked";
+  
+  let computedGlobalRank = "Unranked";
+  if (userRank) {
+    const usersWithHigherRating = await prisma.userRank.count({
+      where: { rating: { gt: userRank.rating } }
+    });
+    computedGlobalRank = `#${usersWithHigherRating + 1}`;
+  }
+
   const problemsSolved = userRank?.problemsSolved || 0;
 
   return (
@@ -92,7 +100,7 @@ export default async function ProfilePage() {
                 <div className="text-[10px] uppercase font-semibold text-slate-400 mt-1">Solved</div>
               </div>
               <div className="text-center">
-                <div className="text-xl font-bold text-slate-900 dark:text-white mt-0.5">{globalRank}</div>
+                <div className="text-xl font-bold text-slate-900 dark:text-white mt-0.5">{computedGlobalRank}</div>
                 <div className="text-[10px] uppercase font-semibold text-slate-400 mt-1.5">Global</div>
               </div>
             </div>
