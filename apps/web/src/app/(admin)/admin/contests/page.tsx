@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getSessionWithRoles } from "@/app/actions/auth";
 import { getAdminContestsServer } from "@/app/actions/contests";
 import { AccessDenied } from "../components/AccessDenied";
+import { AdminContestActions } from "./AdminContestActions";
 
 export const dynamic = "force-dynamic";
 
@@ -88,20 +89,7 @@ export default async function AdminContestsPage() {
                     {contest.created}
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <button className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors" title="View Contest Metadata">
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button className="p-1.5 text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors" title="Disable Registration">
-                        <Ban className="w-4 h-4" />
-                      </button>
-                      <button className="p-1.5 text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 transition-colors" title="Archive Contest">
-                        <Archive className="w-4 h-4" />
-                      </button>
-                      <button className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-colors" title="Delete Contest">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+                    <AdminContestActions contestId={contest.id} />
                   </td>
                 </tr>
               ))}

@@ -53,9 +53,6 @@ export default async function AdminDashboardPage() {
       
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Admin Dashboard</h1>
-        <p className="text-sm text-slate-500 dark:text-zinc-400 mt-1">
-          High-level overview of platform metrics and health.
-        </p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

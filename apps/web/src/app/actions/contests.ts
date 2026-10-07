@@ -139,6 +139,7 @@ export async function getAdminContestsServer() {
   }
 
   const contests = await prisma.contest.findMany({
+    where: { isDeleted: false },
     include: {
       _count: {
         select: { members: { where: { role: "PARTICIPANT" } } }
@@ -1751,4 +1752,32 @@ export async function updateProblemPointsInContest(contestId: string, problemId:
     console.error("Update points error:", error);
     return { success: false, error: error.message || "Failed to update points" };
   }
+}
+
+export async function archiveContestServer(contestId: string) {
+  const session = await getSessionWithRoles();
+  if (!session.isSuperAdmin && !session.permissions.includes("RBAC_CONTESTS")) {
+    return { error: "Forbidden" };
+  }
+  await prisma.contest.update({
+    where: { id: contestId },
+    data: { endTime: new Date() }
+  });
+  revalidatePath("/admin/contests");
+  revalidatePath("/contests");
+  return { success: true };
+}
+
+export async function deleteContestServer(contestId: string) {
+  const session = await getSessionWithRoles();
+  if (!session.isSuperAdmin && !session.permissions.includes("RBAC_CONTESTS")) {
+    return { error: "Forbidden" };
+  }
+  await prisma.contest.update({
+    where: { id: contestId },
+    data: { isDeleted: true }
+  });
+  revalidatePath("/admin/contests");
+  revalidatePath("/contests");
+  return { success: true };
 }

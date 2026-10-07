@@ -49,15 +49,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
 
     if (!isPending && session?.user) {
-      import("@/app/actions/auth").then(({ getUserRoleServer }) => {
-        getUserRoleServer().then((role) => {
-          if (role === "ADMIN") {
-            router.replace("/admin");
-          }
+      if (pathname === "/dashboard") {
+        import("@/app/actions/auth").then(({ getUserRoleServer }) => {
+          getUserRoleServer().then((role) => {
+            if (role === "ADMIN") {
+              router.replace("/admin");
+            }
+          });
         });
-      });
+      }
     }
-  }, [session, isPending, router]);
+  }, [session, isPending, router, pathname]);
 
   if (isPending) {
     return (
