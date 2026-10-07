@@ -3,6 +3,9 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { Toaster } from "sonner";
+import { getPlatformSettingsServer } from "@/app/actions/admin-settings";
+import { getSessionWithRoles } from "@/app/actions/auth";
+import { MaintenanceScreen } from "@/components/MaintenanceScreen";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -19,11 +22,21 @@ export const metadata: Metadata = {
   description: "Integrating competitive programming with transparent, non-intrusive chronological proctoring timelines.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const settings = await getPlatformSettingsServer();
+  let showMaintenance = false;
+  
+  if (settings.maintenanceMode) {
+    const session = await getSessionWithRoles();
+    if (!session.isSuperAdmin) {
+      showMaintenance = true;
+    }
+  }
+
   return (
     <html
       lang="en"
@@ -32,7 +45,7 @@ export default function RootLayout({
     >
       <body suppressHydrationWarning className="bg-background text-on-background font-body-base antialiased min-h-screen flex flex-col overflow-x-hidden">
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
-          {children}
+          {showMaintenance ? <MaintenanceScreen /> : children}
           <Toaster richColors position="top-center" />
         </ThemeProvider>
       </body>

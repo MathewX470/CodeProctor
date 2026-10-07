@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { getSessionWithRoles } from "./auth";
+import { getPlatformSettingsServer } from "./admin-settings";
 import { revalidatePath } from "next/cache";
 import { ProctoringMode } from "@prisma/client";
 import { uploadProctorSnapshot, getPresignedSnapshotUrl } from "@/lib/proctoring/s3Snapshots";
@@ -556,6 +557,11 @@ export async function joinContestByCode(joinCode: string) {
   const session = await getSessionWithRoles();
   if (!session.session?.user) throw new Error("Unauthorized");
 
+  const platformSettings = await getPlatformSettingsServer();
+  if (platformSettings.requireVerification && !session.session.user.emailVerified) {
+    return { success: false, error: "Email verification is required to join contests." };
+  }
+
   try {
     const contest = await prisma.contest.findUnique({
       where: { joinCode: joinCode.trim() },
@@ -593,6 +599,11 @@ export async function joinContestByCode(joinCode: string) {
 export async function joinPublicContest(contestId: string) {
   const session = await getSessionWithRoles();
   if (!session.session?.user) throw new Error("Unauthorized");
+
+  const platformSettings = await getPlatformSettingsServer();
+  if (platformSettings.requireVerification && !session.session.user.emailVerified) {
+    return { success: false, error: "Email verification is required to join contests." };
+  }
 
   try {
     const contest = await prisma.contest.findUnique({
