@@ -339,8 +339,8 @@ export function useComputerVisionProctor({
     startCamera();
 
     return () => {
-      if (stream) {
-        stream.getTracks().forEach(t => t.stop());
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop());
       }
       streamRef.current = null;
       setIsCameraReady(false);

@@ -3,7 +3,6 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Lenis from "lenis";
-import { Toaster } from "sonner";
 import { useSession } from "@/lib/auth-client";
 import { Nav } from "@/components/landing/Nav";
 import { Hero } from "@/components/landing/Hero";
@@ -85,18 +84,6 @@ export default function App() {
         <div className="orb-3 absolute -bottom-32 left-1/4 w-[450px] h-[450px] rounded-full bg-zinc-700/15 blur-[140px]" />
       </div>
 
-      <Toaster
-        position="bottom-right"
-        theme="dark"
-        toastOptions={{
-          style: {
-            background: "#18181b",
-            border: "1px solid rgba(255,255,255,0.06)",
-            color: "#fafafa",
-            borderRadius: "0.75rem",
-          },
-        }}
-      />
       <div className="relative z-10">
         <Nav />
         <main>

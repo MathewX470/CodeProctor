@@ -139,7 +139,11 @@ export function ProblemIDE({ problem }: { problem: ProblemData }) {
       const { submissionId } = await res.json();
 
       // 2. Poll for Results
+      let isFinished = false;
+      let isFetching = false;
       const poll = setInterval(async () => {
+        if (isFinished || isFetching) return;
+        isFetching = true;
         try {
           const pollRes = await fetch(`/api/submissions/${submissionId}`);
           if (!pollRes.ok) return;
@@ -148,6 +152,7 @@ export function ProblemIDE({ problem }: { problem: ProblemData }) {
           setSubmissionResult(data);
 
           if (data.status === "COMPLETED" || data.status === "FINISHED") {
+            isFinished = true;
             clearInterval(poll);
             if (actionType === "RUN") setIsRunning(false);
             else {
@@ -176,6 +181,8 @@ export function ProblemIDE({ problem }: { problem: ProblemData }) {
           }
         } catch (e) {
           console.error("Polling error", e);
+        } finally {
+          isFetching = false;
         }
       }, 1000);
 

@@ -60,8 +60,8 @@ export function CameraCalibrationModal({
     testWebcam();
 
     return () => {
-      if (stream) {
-        stream.getTracks().forEach(t => t.stop());
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop());
       }
       streamRef.current = null;
     };
@@ -90,33 +90,33 @@ export function CameraCalibrationModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150">
-      <div className="max-w-md w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 sm:p-8 text-center shadow-2xl relative animate-in zoom-in-95 duration-150">
+      <div className="max-w-md w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 sm:p-6 text-center shadow-2xl relative animate-in zoom-in-95 duration-150">
         <button
           onClick={onClose}
           disabled={isStarting}
-          className="absolute top-5 right-5 p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+          className="absolute top-4 right-4 p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors z-10"
         >
-          <X className="w-5 h-5" />
+          <X className="w-4 h-4" />
         </button>
 
-        <div className="w-14 h-14 rounded-2xl bg-purple-500/10 border border-purple-500/30 text-purple-500 flex items-center justify-center mx-auto mb-4 shadow-sm">
-          <Camera className="w-7 h-7" />
+        <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-500 flex items-center justify-center mx-auto mb-2 shadow-sm shrink-0">
+          <Camera className="w-5 h-5" />
         </div>
 
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30 mb-2">
+        <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30 mb-1.5">
           AI Vision Proctoring
         </div>
 
-        <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight mb-2">
+        <h3 className="text-lg font-black text-slate-900 dark:text-white tracking-tight mb-1">
           Webcam & Gaze Calibration
         </h3>
 
-        <p className="text-xs text-slate-500 dark:text-zinc-400 mb-5 leading-relaxed">
-          This contest records objective camera events (such as multiple people or face absence) for organizer review.
+        <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-zinc-400 mb-3 leading-snug">
+          This contest records objective camera events for organizer review.
         </p>
 
         {/* Live Camera Viewfinder */}
-        <div className="relative rounded-2xl overflow-hidden bg-slate-950 aspect-[4/3] border border-slate-800 mb-5 flex items-center justify-center shadow-inner">
+        <div className="relative rounded-xl overflow-hidden bg-slate-950 aspect-[21/9] max-h-36 border border-slate-800 mb-3 flex items-center justify-center shadow-inner shrink-0">
           <video
             ref={videoRef}
             autoPlay
@@ -126,39 +126,39 @@ export function CameraCalibrationModal({
           />
 
           {step === "PERMISSION" && (
-            <div className="absolute inset-0 bg-slate-950/90 flex flex-col items-center justify-center gap-2 p-4 text-xs text-slate-300">
-              <Loader2 className="w-6 h-6 animate-spin text-purple-500" />
+            <div className="absolute inset-0 bg-slate-950/90 flex flex-col items-center justify-center gap-2 p-2 text-xs text-slate-300">
+              <Loader2 className="w-5 h-5 animate-spin text-purple-500" />
               <span>Requesting camera permission...</span>
             </div>
           )}
 
           {step === "CALIBRATING" && (
-            <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-[2px] flex flex-col items-center justify-center gap-2 text-white">
-              <div className="w-12 h-12 rounded-full border-2 border-purple-500 flex items-center justify-center font-mono font-black text-xl animate-pulse bg-purple-950/60">
+            <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-[2px] flex flex-col items-center justify-center gap-1 text-white">
+              <div className="w-10 h-10 rounded-full border-2 border-purple-500 flex items-center justify-center font-mono font-black text-lg animate-pulse bg-purple-950/60">
                 {countdown}
               </div>
-              <span className="text-xs font-bold tracking-wide">Look directly at your screen</span>
-              <span className="text-[11px] text-slate-300">Zeroing neutral gaze baseline...</span>
+              <span className="text-[10px] sm:text-xs font-bold tracking-wide">Look directly at your screen</span>
+              <span className="text-[9px] text-slate-300">Zeroing neutral gaze baseline...</span>
             </div>
           )}
 
           {step === "READY" && (
-            <div className="absolute top-2 left-2 bg-green-500/90 text-white px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-md">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Calibrated
+            <div className="absolute top-2 left-2 bg-green-500/90 text-white px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider flex items-center gap-1 shadow-md">
+              <CheckCircle2 className="w-3 h-3" /> Calibrated
             </div>
           )}
 
           {step === "ERROR" && (
-            <div className="absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center gap-2 p-4 text-xs text-red-400">
-              <AlertCircle className="w-8 h-8 text-red-500 mb-1" />
+            <div className="absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center gap-1 p-2 text-xs text-red-400">
+              <AlertCircle className="w-6 h-6 text-red-500 mb-0.5" />
               <span className="font-bold">Camera Connection Failed</span>
-              <span className="text-[11px] text-slate-400 text-center max-w-xs">{errorMsg}</span>
+              <span className="text-[10px] text-slate-400 text-center max-w-xs">{errorMsg}</span>
             </div>
           )}
         </div>
 
         {/* 4 Checklist Verification Items */}
-        <div className="bg-slate-50 dark:bg-zinc-800/60 rounded-2xl p-3.5 text-left space-y-2 text-xs text-slate-600 dark:text-zinc-300 mb-6 border border-slate-200 dark:border-zinc-700/60">
+        <div className="bg-slate-50 dark:bg-zinc-800/60 rounded-xl p-2.5 sm:p-3 text-left space-y-1.5 text-[11px] text-slate-600 dark:text-zinc-300 mb-4 border border-slate-200 dark:border-zinc-700/60">
           <div className="flex items-center justify-between">
             <span className="flex items-center gap-2">
               <Camera className="w-3.5 h-3.5 text-purple-500" />
