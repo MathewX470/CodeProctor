@@ -9,19 +9,43 @@ import {
   Globe2, 
   ServerCrash
 } from "lucide-react";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-export default function AdminDashboardPage() {
+export default async function AdminDashboardPage() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const [
+    totalUsers,
+    totalContests,
+    totalProblems,
+    activeContests,
+    submissionsToday,
+    totalSubmissions
+  ] = await Promise.all([
+    prisma.user.count(),
+    prisma.contest.count({ where: { isDeleted: false } }),
+    prisma.problem.count({ where: { isDeleted: false } }),
+    prisma.contest.count({ 
+      where: { 
+        startTime: { lte: new Date() }, 
+        endTime: { gte: new Date() }, 
+        isDeleted: false 
+      } 
+    }),
+    prisma.submission.count({ where: { submittedAt: { gte: today } } }),
+    prisma.submission.count()
+  ]);
+
   const kpis = [
-    { label: "Total Users", value: "1,248", icon: Users, color: "text-blue-500", bg: "bg-blue-50 dark:bg-blue-500/10", border: "border-blue-100 dark:border-blue-500/20" },
-    { label: "Contest Creators", value: "34", icon: UserCog, color: "text-purple-500", bg: "bg-purple-50 dark:bg-purple-500/10", border: "border-purple-100 dark:border-purple-500/20" },
-    { label: "Total Contests", value: "89", icon: Trophy, color: "text-amber-500", bg: "bg-amber-50 dark:bg-amber-500/10", border: "border-amber-100 dark:border-amber-500/20" },
-    { label: "Problems", value: "450", icon: Database, color: "text-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-500/10", border: "border-emerald-100 dark:border-emerald-500/20" },
-    { label: "Submissions Today", value: "3,102", icon: Activity, color: "text-indigo-500", bg: "bg-indigo-50 dark:bg-indigo-500/10", border: "border-indigo-100 dark:border-indigo-500/20" },
-    { label: "Active Contests", value: "2", icon: PlayCircle, color: "text-rose-500", bg: "bg-rose-50 dark:bg-rose-500/10", border: "border-rose-100 dark:border-rose-500/20" },
-    { label: "Online Users", value: "156", icon: Globe2, color: "text-cyan-500", bg: "bg-cyan-50 dark:bg-cyan-500/10", border: "border-cyan-100 dark:border-cyan-500/20" },
-    { label: "System Status", value: "Nominal", icon: ServerCrash, color: "text-green-500", bg: "bg-green-50 dark:bg-green-500/10", border: "border-green-100 dark:border-green-500/20" },
+    { label: "Total Users", value: totalUsers.toLocaleString(), icon: Users, color: "text-blue-500", bg: "bg-blue-50 dark:bg-blue-500/10", border: "border-blue-100 dark:border-blue-500/20" },
+    { label: "Total Submissions", value: totalSubmissions.toLocaleString(), icon: UserCog, color: "text-purple-500", bg: "bg-purple-50 dark:bg-purple-500/10", border: "border-purple-100 dark:border-purple-500/20" },
+    { label: "Total Contests", value: totalContests.toLocaleString(), icon: Trophy, color: "text-amber-500", bg: "bg-amber-50 dark:bg-amber-500/10", border: "border-amber-100 dark:border-amber-500/20" },
+    { label: "Problems", value: totalProblems.toLocaleString(), icon: Database, color: "text-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-500/10", border: "border-emerald-100 dark:border-emerald-500/20" },
+    { label: "Submissions Today", value: submissionsToday.toLocaleString(), icon: Activity, color: "text-indigo-500", bg: "bg-indigo-50 dark:bg-indigo-500/10", border: "border-indigo-100 dark:border-indigo-500/20" },
+    { label: "Active Contests", value: activeContests.toLocaleString(), icon: PlayCircle, color: "text-rose-500", bg: "bg-rose-50 dark:bg-rose-500/10", border: "border-rose-100 dark:border-rose-500/20" },
   ];
 
   return (
