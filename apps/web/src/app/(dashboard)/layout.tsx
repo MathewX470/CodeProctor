@@ -13,10 +13,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { data: session, isPending } = useSession();
   
   const isIdePage = pathname?.match(/^\/problems\/[^/]+$/);
-  const isContestArena = Boolean(
-    (pathname?.match(/^\/contests\/[^/]+$/) && !pathname?.includes("/contests/create")) ||
-    pathname?.match(/^\/contests\/[^/]+\/problems\/[^/]+$/)
-  );
+  const isContestArena = Boolean(pathname?.includes("/contests/") && pathname?.includes("/problems/"));
+  const isContestEntry = Boolean(pathname?.match(/^\/contests\/[^/]+$/) && !pathname?.includes("/contests/create"));
   const [isFullscreen, setIsFullscreen] = React.useState(false);
 
   useEffect(() => {
@@ -31,7 +29,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     };
   }, []);
 
-  const hideNavbar = isContestArena || isFullscreen;
+  const preventScroll = isContestArena || isFullscreen;
+  const hideNavbar = isContestArena || isFullscreen || isContestEntry;
 
   const hasRedirected = React.useRef(false);
 
@@ -84,17 +83,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className={`bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 font-sans selection:bg-blue-100 selection:text-blue-900 dark:selection:bg-zinc-800 dark:selection:text-zinc-100 relative overflow-x-hidden flex flex-col transition-colors duration-300 ${
-      hideNavbar ? "h-screen overflow-hidden" : "min-h-screen"
+      preventScroll ? "h-screen overflow-hidden" : "min-h-screen"
     }`}>
       {/* React Bits style animated background */}
-      {!hideNavbar && !isIdePage && <AnimatedGrid gridSize={40} className="fixed z-0" />}
+      {(!hideNavbar || isContestEntry) && !isIdePage && <AnimatedGrid gridSize={40} className="fixed z-0" />}
 
       {/* Universal Command Header (Hidden during Fullscreen tests and Contest IDE) */}
       {!hideNavbar && <DashboardNav />}
 
       {/* Main Content Arena */}
       <main className={`flex-1 relative z-10 w-full ${
-        hideNavbar 
+        preventScroll 
           ? "h-screen overflow-hidden p-0 m-0" 
           : isIdePage 
           ? "" 

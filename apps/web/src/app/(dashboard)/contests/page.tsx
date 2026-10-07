@@ -142,7 +142,7 @@ export default async function UserContestsPage() {
             </>
           ) : (
             <Link 
-              href={stateType === "active" ? `/contests/${contest.id}/arena` : `/contests/${contest.id}`}
+              href={`/contests/${contest.id}`}
               className="flex-1 text-center py-2 px-4 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 bg-blue-600 dark:bg-white hover:bg-blue-700 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 shadow-sm"
             >
               {stateType === "active" ? (
