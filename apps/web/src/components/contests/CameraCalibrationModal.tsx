@@ -94,12 +94,12 @@ export function CameraCalibrationModal({
         <button
           onClick={onClose}
           disabled={isStarting}
-          className="absolute top-5 right-5 p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+          className="absolute top-5 right-5 p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors z-10"
         >
           <X className="w-5 h-5" />
         </button>
 
-        <div className="w-14 h-14 rounded-2xl bg-purple-500/10 border border-purple-500/30 text-purple-500 flex items-center justify-center mx-auto mb-4 shadow-sm">
+        <div className="w-14 h-14 rounded-2xl bg-purple-500/10 border border-purple-500/30 text-purple-500 flex items-center justify-center mx-auto mb-4 shadow-sm shrink-0">
           <Camera className="w-7 h-7" />
         </div>
 
@@ -111,12 +111,12 @@ export function CameraCalibrationModal({
           Webcam & Gaze Calibration
         </h3>
 
-        <p className="text-xs text-slate-500 dark:text-zinc-400 mb-5 leading-relaxed">
+        <p className="text-xs text-slate-500 dark:text-zinc-400 mb-4 leading-relaxed">
           This contest records objective camera events (such as multiple people or face absence) for organizer review.
         </p>
 
         {/* Live Camera Viewfinder */}
-        <div className="relative rounded-2xl overflow-hidden bg-slate-950 aspect-[4/3] border border-slate-800 mb-5 flex items-center justify-center shadow-inner">
+        <div className="relative rounded-2xl overflow-hidden bg-slate-950 aspect-video border border-slate-800 mb-5 flex items-center justify-center shadow-inner shrink-0">
           <video
             ref={videoRef}
             autoPlay

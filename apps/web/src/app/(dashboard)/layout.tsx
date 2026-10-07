@@ -13,7 +13,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { data: session, isPending } = useSession();
   
   const isIdePage = pathname?.match(/^\/problems\/[^/]+$/);
-  const isContestArena = Boolean(pathname?.includes("/contests/") && pathname?.includes("/problems/"));
+  const isContestArena = Boolean(pathname?.match(/^\/contests\/[^/]+/) && !pathname?.includes("/contests/create"));
   const [isFullscreen, setIsFullscreen] = React.useState(false);
 
   useEffect(() => {

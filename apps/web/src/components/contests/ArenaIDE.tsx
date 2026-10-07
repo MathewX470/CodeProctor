@@ -243,6 +243,9 @@ export function ArenaIDE({
     if (isTimeUp) {
       toast.error("Contest duration has ended. Submitting your assessment...");
       endContestServer(contestId).finally(() => {
+        if (document.fullscreenElement) {
+          document.exitFullscreen().catch(console.error);
+        }
         setTimeout(() => {
           router.push(`/contests/${contestId}`);
           router.refresh();

@@ -15,6 +15,9 @@ export function ArenaEndButton({ contestId }: { contestId: string }) {
     setIsEnding(true);
     const res = await endContestServer(contestId);
     if (res.success) {
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(console.error);
+      }
       toast.success("Contest assessment submitted successfully!");
       setShowModal(false);
       router.refresh();
