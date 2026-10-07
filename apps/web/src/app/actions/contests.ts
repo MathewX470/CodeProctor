@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { getSessionWithRoles } from "./auth";
+import { getPlatformSettingsServer } from "./admin-settings";
 import { revalidatePath } from "next/cache";
 import { ProctoringMode } from "@prisma/client";
 import { uploadProctorSnapshot, getPresignedSnapshotUrl } from "@/lib/proctoring/s3Snapshots";
@@ -139,6 +140,7 @@ export async function getAdminContestsServer() {
   }
 
   const contests = await prisma.contest.findMany({
+    where: { isDeleted: false },
     include: {
       _count: {
         select: { members: { where: { role: "PARTICIPANT" } } }
@@ -555,6 +557,11 @@ export async function joinContestByCode(joinCode: string) {
   const session = await getSessionWithRoles();
   if (!session.session?.user) throw new Error("Unauthorized");
 
+  const platformSettings = await getPlatformSettingsServer();
+  if (platformSettings.requireVerification && !session.session.user.emailVerified) {
+    return { success: false, error: "Email verification is required to join contests." };
+  }
+
   try {
     const contest = await prisma.contest.findUnique({
       where: { joinCode: joinCode.trim() },
@@ -592,6 +599,11 @@ export async function joinContestByCode(joinCode: string) {
 export async function joinPublicContest(contestId: string) {
   const session = await getSessionWithRoles();
   if (!session.session?.user) throw new Error("Unauthorized");
+
+  const platformSettings = await getPlatformSettingsServer();
+  if (platformSettings.requireVerification && !session.session.user.emailVerified) {
+    return { success: false, error: "Email verification is required to join contests." };
+  }
 
   try {
     const contest = await prisma.contest.findUnique({
@@ -1751,4 +1763,32 @@ export async function updateProblemPointsInContest(contestId: string, problemId:
     console.error("Update points error:", error);
     return { success: false, error: error.message || "Failed to update points" };
   }
+}
+
+export async function archiveContestServer(contestId: string) {
+  const session = await getSessionWithRoles();
+  if (!session.isSuperAdmin && !session.permissions.includes("RBAC_CONTESTS")) {
+    return { error: "Forbidden" };
+  }
+  await prisma.contest.update({
+    where: { id: contestId },
+    data: { endTime: new Date() }
+  });
+  revalidatePath("/admin/contests");
+  revalidatePath("/contests");
+  return { success: true };
+}
+
+export async function deleteContestServer(contestId: string) {
+  const session = await getSessionWithRoles();
+  if (!session.isSuperAdmin && !session.permissions.includes("RBAC_CONTESTS")) {
+    return { error: "Forbidden" };
+  }
+  await prisma.contest.update({
+    where: { id: contestId },
+    data: { isDeleted: true }
+  });
+  revalidatePath("/admin/contests");
+  revalidatePath("/contests");
+  return { success: true };
 }

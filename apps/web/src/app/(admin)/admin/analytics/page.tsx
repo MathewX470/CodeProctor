@@ -2,6 +2,13 @@ import React from "react";
 import { BarChart3, TrendingUp, PieChart, LineChart } from "lucide-react";
 import { getSessionWithRoles } from "@/app/actions/auth";
 import { AccessDenied } from "../components/AccessDenied";
+import { getAdminAnalyticsServer } from "@/app/actions/analytics";
+import { 
+  UserGrowthChart, 
+  ContestGrowthChart, 
+  LanguagePopularityChart, 
+  SubmissionOutcomesChart 
+} from "./AnalyticsCharts";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +18,8 @@ export default async function AdminAnalyticsPage() {
   if (!isSuperAdmin && !permissions.includes("RBAC_ANALYTICS")) {
     return <AccessDenied message="You need the 'View Analytics' permission to view this page." />;
   }
+
+  const { userGrowth, contestGrowth, languagePopularity, submissionOutcomes } = await getAdminAnalyticsServer();
 
   return (
     <div className="p-6 md:p-10 max-w-7xl mx-auto space-y-6">
@@ -30,10 +39,10 @@ export default async function AdminAnalyticsPage() {
             <div className="p-2 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-lg">
               <TrendingUp className="w-5 h-5" />
             </div>
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white">User Growth</h2>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">User Growth (Last 6 Months)</h2>
           </div>
-          <div className="h-48 flex items-center justify-center bg-slate-50 dark:bg-zinc-800/50 rounded-xl border border-dashed border-slate-200 dark:border-zinc-700 text-slate-400 dark:text-zinc-500 text-sm">
-            [ Line Chart Placeholder: Users over Time ]
+          <div className="h-48 w-full bg-slate-50 dark:bg-zinc-800/50 rounded-xl border border-dashed border-slate-200 dark:border-zinc-700">
+            <UserGrowthChart data={userGrowth} />
           </div>
         </div>
 
@@ -43,10 +52,10 @@ export default async function AdminAnalyticsPage() {
             <div className="p-2 bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded-lg">
               <BarChart3 className="w-5 h-5" />
             </div>
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white">Contest Growth</h2>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">Contests (Last 6 Months)</h2>
           </div>
-          <div className="h-48 flex items-center justify-center bg-slate-50 dark:bg-zinc-800/50 rounded-xl border border-dashed border-slate-200 dark:border-zinc-700 text-slate-400 dark:text-zinc-500 text-sm">
-            [ Bar Chart Placeholder: Contests per Month ]
+          <div className="h-48 w-full bg-slate-50 dark:bg-zinc-800/50 rounded-xl border border-dashed border-slate-200 dark:border-zinc-700">
+            <ContestGrowthChart data={contestGrowth} />
           </div>
         </div>
 
@@ -58,8 +67,8 @@ export default async function AdminAnalyticsPage() {
             </div>
             <h2 className="text-lg font-bold text-slate-900 dark:text-white">Popular Languages</h2>
           </div>
-          <div className="h-48 flex items-center justify-center bg-slate-50 dark:bg-zinc-800/50 rounded-xl border border-dashed border-slate-200 dark:border-zinc-700 text-slate-400 dark:text-zinc-500 text-sm">
-            [ Pie Chart Placeholder: Python vs C++ vs Java ]
+          <div className="h-48 w-full bg-slate-50 dark:bg-zinc-800/50 rounded-xl border border-dashed border-slate-200 dark:border-zinc-700">
+            <LanguagePopularityChart data={languagePopularity} />
           </div>
         </div>
 
@@ -71,8 +80,8 @@ export default async function AdminAnalyticsPage() {
             </div>
             <h2 className="text-lg font-bold text-slate-900 dark:text-white">Submission Outcomes</h2>
           </div>
-          <div className="h-48 flex items-center justify-center bg-slate-50 dark:bg-zinc-800/50 rounded-xl border border-dashed border-slate-200 dark:border-zinc-700 text-slate-400 dark:text-zinc-500 text-sm">
-            [ Stacked Bar Chart Placeholder: Accepted vs Failed ]
+          <div className="h-48 w-full bg-slate-50 dark:bg-zinc-800/50 rounded-xl border border-dashed border-slate-200 dark:border-zinc-700">
+            <SubmissionOutcomesChart data={submissionOutcomes} />
           </div>
         </div>
 
