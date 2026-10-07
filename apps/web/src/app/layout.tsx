@@ -30,7 +30,7 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`dark ${inter.variable} ${jetbrainsMono.variable} antialiased selection:bg-zinc-800 selection:text-emerald-400`}
     >
-      <body className="bg-background text-on-background font-body-base antialiased min-h-screen flex flex-col overflow-x-hidden">
+      <body suppressHydrationWarning className="bg-background text-on-background font-body-base antialiased min-h-screen flex flex-col overflow-x-hidden">
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
           {children}
           <Toaster richColors position="top-center" />
