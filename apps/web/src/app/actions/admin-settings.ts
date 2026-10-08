@@ -8,7 +8,7 @@ export async function getPlatformSettingsServer() {
   try {
     const fetchPromise = redis.get("platform:settings");
     const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error("Redis timeout")), 200)
+      setTimeout(() => reject(new Error("Redis timeout")), 1000)
     );
     
     // Type assert the result to string | null since we know redis.get returns this
