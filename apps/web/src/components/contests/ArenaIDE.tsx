@@ -18,7 +18,6 @@ import { endContestServer } from "@/app/actions/contests";
 import { useStrictProctor } from "@/hooks/useStrictProctor";
 import { StrictProctorOverlay } from "./StrictProctorOverlay";
 import { useComputerVisionProctor } from "@/hooks/useComputerVisionProctor";
-import { WebcamHUD } from "./WebcamHUD";
 
 const MDPreview = dynamic(
   () => import("@uiw/react-markdown-preview").then((mod) => mod.default),
@@ -1026,9 +1025,9 @@ export function ArenaIDE({
 
                                     {!tc.isHidden && (tc.input || tc.expectedOutput) && (
                                       <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 space-y-2 text-[11px]">
-                                        {tc.input && <div><div className="text-slate-400 mb-0.5">Input: </div><div className="text-slate-800 dark:text-zinc-200 whitespace-pre-wrap">{tc.input}</div></div>}
-                                        {tc.expectedOutput && <div><div className="text-slate-400 mb-0.5">Expected: </div><div className="text-green-600 whitespace-pre-wrap">{tc.expectedOutput}</div></div>}
-                                        {tc.actualOutput && <div><div className="text-slate-400 mb-0.5">Your Output: </div><div className="text-red-600 whitespace-pre-wrap">{tc.actualOutput}</div></div>}
+                                        {tc.input !== undefined && tc.input !== null && <div><div className="text-slate-400 mb-0.5">Input: </div><div className="text-slate-800 dark:text-zinc-200 whitespace-pre-wrap">{tc.input}</div></div>}
+                                        {tc.expectedOutput !== undefined && tc.expectedOutput !== null && <div><div className="text-slate-400 mb-0.5">Expected: </div><div className="text-green-600 whitespace-pre-wrap">{tc.expectedOutput}</div></div>}
+                                        {tc.actualOutput !== undefined && tc.actualOutput !== null && <div><div className="text-slate-400 mb-0.5">Your Output: </div><div className={`${tc.verdict === 'ACCEPTED' ? 'text-green-600' : 'text-red-600'} whitespace-pre-wrap`}>{tc.actualOutput}</div></div>}
                                       </div>
                                     )}
                                   </div>
@@ -1067,16 +1066,14 @@ export function ArenaIDE({
         onDismiss={() => setShowWarningModal(false)}
       />
 
-      {/* Floating Picture-in-Picture Webcam HUD */}
+      {/* Hidden Video Element for Computer Vision Proctoring */}
       {isCvProctor && !isDisqualified && (
-        <WebcamHUD
-          videoRef={cvVideoRef}
-          status={cvStatus}
-          faceCount={cvFaceCount}
-          yaw={cvYaw}
-          pitch={cvPitch}
-          isCameraReady={cvIsCameraReady}
-          onRecalibrate={cvRecalibrate}
+        <video
+          ref={cvVideoRef}
+          autoPlay
+          playsInline
+          muted
+          className="hidden opacity-0 pointer-events-none absolute w-0 h-0"
         />
       )}
     </div>
