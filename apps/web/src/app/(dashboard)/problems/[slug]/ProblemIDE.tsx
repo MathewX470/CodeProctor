@@ -62,6 +62,11 @@ export function ProblemIDE({ problem }: { problem: ProblemData }) {
   const currentLangObj = problem.allLanguages.find(l => l.id === selectedLang);
   const currentCode = selectedLang ? (codeMap[selectedLang] || "") : "";
 
+  // Hints state
+  const [hints, setHints] = useState<string[]>([]);
+  const [isGeneratingHint, setIsGeneratingHint] = useState(false);
+  const [isHintModalOpen, setIsHintModalOpen] = useState(false);
+
   const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newLang = e.target.value;
     setSelectedLang(newLang);
@@ -70,6 +75,51 @@ export function ProblemIDE({ problem }: { problem: ProblemData }) {
   const handleCodeChange = (value: string | undefined) => {
     if (value !== undefined && selectedLang) {
       setCodeMap(prev => ({ ...prev, [selectedLang]: value }));
+    }
+  };
+
+  const generateHint = async () => {
+    if (!currentCode || currentCode.trim() === "") {
+      toast.error("Please write some code before asking for a hint.");
+      return;
+    }
+    
+    if (currentTemplate && currentCode.trim() === currentTemplate.boilerplate.trim()) {
+      toast.error("You haven't changed the template code! Please try solving it first before asking for a hint.");
+      return;
+    }
+
+    if (hints.length >= 3) {
+      toast.error("Maximum 3 hints allowed per session.");
+      return;
+    }
+    setIsGeneratingHint(true);
+    setIsHintModalOpen(true);
+    try {
+      const res = await fetch(`/api/problems/${problem.slug}/hint`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: currentCode,
+          language: currentLangObj?.name || selectedLang,
+          problemTitle: problem.title,
+          problemDescription: problem.description,
+          hintNumber: hints.length + 1,
+        }),
+      });
+
+      if (!res.ok) {
+         const errData = await res.json();
+         throw new Error(errData.error || "Failed to generate hint");
+      }
+      
+      const data = await res.json();
+      setHints(prev => [...prev, data.hint]);
+      toast.success("Hint generated!");
+    } catch (e: any) {
+      toast.error(e.message || "Failed to generate hint.");
+    } finally {
+      setIsGeneratingHint(false);
     }
   };
 
@@ -245,6 +295,56 @@ export function ProblemIDE({ problem }: { problem: ProblemData }) {
             </div>
           )}
           
+          <div className="relative">
+            <button 
+              onClick={() => {
+                if (hints.length > 0) setIsHintModalOpen(!isHintModalOpen);
+                else generateHint();
+              }}
+              disabled={isRunning || isSubmitting || (hints.length === 0 && isGeneratingHint)}
+              className="flex items-center gap-2 px-4 py-1.5 bg-purple-100 hover:bg-purple-200 dark:bg-purple-500/10 dark:hover:bg-purple-500/20 text-purple-700 dark:text-purple-400 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+              title={hints.length >= 3 && !isHintModalOpen ? "Max hints reached" : "AI Hints"}
+            >
+              {isGeneratingHint && hints.length === 0 ? <Loader2 className="w-4 h-4 animate-spin" /> : <AlertCircle className="w-4 h-4" />}
+              {hints.length > 0 ? "View Hints" : `Hint (${3 - hints.length} left)`}
+            </button>
+            
+            {isHintModalOpen && hints.length > 0 && (
+              <div className="absolute top-full mt-2 right-0 w-[400px] max-w-[90vw] bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 shadow-xl rounded-xl z-[100] overflow-hidden flex flex-col max-h-[80vh] sm:max-h-[60vh]">
+                 <div className="p-3 border-b border-slate-100 dark:border-zinc-800 flex justify-between items-center bg-purple-50 dark:bg-purple-900/10">
+                   <h3 className="font-bold text-purple-700 dark:text-purple-400 flex items-center gap-2 text-sm">
+                     <AlertCircle className="w-4 h-4" /> AI Hints
+                   </h3>
+                   <button onClick={() => setIsHintModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:text-zinc-500 dark:hover:text-zinc-300">
+                     <X className="w-4 h-4" />
+                   </button>
+                 </div>
+                 <div className="p-4 overflow-y-auto space-y-4 bg-slate-50/50 dark:bg-zinc-900/50">
+                   {hints.map((hint, i) => (
+                     <div key={i} className="bg-white dark:bg-zinc-800 rounded-lg p-4 border border-slate-200 dark:border-zinc-700 shadow-sm">
+                       <div className="text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-2">Hint {i + 1}</div>
+                       <div className="text-sm prose prose-sm dark:prose-invert max-w-none prose-p:leading-snug prose-pre:bg-slate-50 dark:prose-pre:bg-zinc-900/50">
+                          <MDPreview source={hint} style={{ backgroundColor: "transparent", color: "inherit", fontFamily: "inherit" }} />
+                       </div>
+                     </div>
+                   ))}
+                 </div>
+                 {hints.length < 3 && (
+                   <div className="p-3 border-t border-slate-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 shrink-0">
+                     <button 
+                       onClick={generateHint}
+                       disabled={isGeneratingHint}
+                       className="w-full py-2 bg-purple-50 hover:bg-purple-100 dark:bg-purple-500/10 dark:hover:bg-purple-500/20 text-purple-700 dark:text-purple-400 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                     >
+                       {isGeneratingHint ? <Loader2 className="w-4 h-4 animate-spin" /> : <AlertCircle className="w-4 h-4" />}
+                       {isGeneratingHint ? "Generating..." : `Get Another Hint (${3 - hints.length} left)`}
+                     </button>
+                   </div>
+                 )}
+              </div>
+            )}
+          </div>
+          
           <button 
             onClick={handleRun}
             disabled={isRunning || isSubmitting}
@@ -360,6 +460,7 @@ export function ProblemIDE({ problem }: { problem: ProblemData }) {
                         </div>
                       </div>
                     )}
+
                   </div>
                 )}
 

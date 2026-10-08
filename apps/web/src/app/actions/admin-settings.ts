@@ -5,8 +5,18 @@ import { redis } from "@/lib/redis";
 import { revalidatePath } from "next/cache";
 
 export async function getPlatformSettingsServer() {
-  const settings = await redis.get("platform:settings");
-  if (settings) return JSON.parse(settings);
+  try {
+    const fetchPromise = redis.get("platform:settings");
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error("Redis timeout")), 1000)
+    );
+    
+    // Type assert the result to string | null since we know redis.get returns this
+    const settings = (await Promise.race([fetchPromise, timeoutPromise])) as string | null;
+    if (settings) return JSON.parse(settings);
+  } catch (err) {
+    console.error("Redis connection/timeout error in settings:", err);
+  }
   
   return {
     platformName: "CodeProctor",
