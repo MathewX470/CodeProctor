@@ -18,7 +18,6 @@ import { endContestServer } from "@/app/actions/contests";
 import { useStrictProctor } from "@/hooks/useStrictProctor";
 import { StrictProctorOverlay } from "./StrictProctorOverlay";
 import { useComputerVisionProctor } from "@/hooks/useComputerVisionProctor";
-import { WebcamHUD } from "./WebcamHUD";
 
 const MDPreview = dynamic(
   () => import("@uiw/react-markdown-preview").then((mod) => mod.default),
@@ -1067,16 +1066,14 @@ export function ArenaIDE({
         onDismiss={() => setShowWarningModal(false)}
       />
 
-      {/* Floating Picture-in-Picture Webcam HUD */}
+      {/* Hidden Video Element for Computer Vision Proctoring */}
       {isCvProctor && !isDisqualified && (
-        <WebcamHUD
-          videoRef={cvVideoRef}
-          status={cvStatus}
-          faceCount={cvFaceCount}
-          yaw={cvYaw}
-          pitch={cvPitch}
-          isCameraReady={cvIsCameraReady}
-          onRecalibrate={cvRecalibrate}
+        <video
+          ref={cvVideoRef}
+          autoPlay
+          playsInline
+          muted
+          className="hidden opacity-0 pointer-events-none absolute w-0 h-0"
         />
       )}
     </div>
